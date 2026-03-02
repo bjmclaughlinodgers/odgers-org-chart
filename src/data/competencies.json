@@ -1,0 +1,162 @@
+{
+  "Analyst": {
+    "domains": [
+      "Research Strategy & Candidate Identification",
+      "Candidate Assessment & Screening (support role)",
+      "Industry Knowledge & Learning Agility",
+      "Communication & Team Coordination",
+      "Workload Management (8+ active searches)",
+      "Technology Adoption & Data Accuracy (Salesforce, MIS)"
+    ],
+    "typicalSkillsTags": ["Research Strategy", "Candidate Identification", "Screening Support", "Market Intelligence"],
+    "typicalNeedsTags": [],
+    "searchLoad": "8+ active searches"
+  },
+  "Associate": {
+    "domains": [
+      "Research Strategy & Candidate Sourcing (owns strategy)",
+      "Candidate Assessment & Relationship Management (conducts first interviews)",
+      "Client Alignment & Professionalism",
+      "Industry Knowledge & Learning Agility",
+      "Workload Management (6-8 active searches)",
+      "Technology Adoption & Data Accuracy"
+    ],
+    "typicalSkillsTags": ["Research Strategy", "Candidate Sourcing", "First Interviews", "Outreach"],
+    "typicalNeedsTags": ["Schedule Management", "Documentation"],
+    "searchLoad": "6-8 active searches"
+  },
+  "Senior Associate": {
+    "domains": [
+      "Search Process Leadership & Execution (end-to-end with Partner guidance)",
+      "Research Strategy & Candidate Sourcing (directs Analysts)",
+      "Candidate Relationship Management",
+      "Client Engagement & Professionalism",
+      "Industry Knowledge & Learning Agility",
+      "Workload Management (6-8 active searches)"
+    ],
+    "typicalSkillsTags": ["Search Execution", "Candidate Assessment", "Research Strategy", "Client Communication"],
+    "typicalNeedsTags": ["Schedule Management", "Documentation", "BD Support"],
+    "searchLoad": "6-8 active searches"
+  },
+  "Engagement Manager": {
+    "domains": [
+      "Search Leadership & Delivery Excellence (independent, full lifecycle)",
+      "Client Leadership & Relationship Management (primary client contact)",
+      "Research Strategy & Market Expertise",
+      "Team Leadership, Coaching & Collaboration (mentors Associates, Analysts, PCs)",
+      "Workload Management (6-8 active searches)",
+      "Quality, Reliability & Best Practices",
+      "Technology Adoption & Data Integrity"
+    ],
+    "typicalSkillsTags": ["Search Execution", "Client Management", "Candidate Assessment", "Team Leadership", "Market Research"],
+    "typicalNeedsTags": ["Schedule Management", "Status Reports", "Documentation"],
+    "searchLoad": "6-8 active searches"
+  },
+  "Project Coordinator": {
+    "domains": [
+      "Project & Search Coordination (scheduling, documentation, engagement letters)",
+      "Client & Candidate Service Excellence",
+      "Documentation, Reporting & Data Integrity (Salesforce)",
+      "Business Development Support (BD meeting logistics, pipeline tracking)",
+      "Technical Proficiency (O365, PowerPoint, Excel)",
+      "Adaptability & Problem Solving"
+    ],
+    "typicalSkillsTags": ["Scheduling", "Documentation", "Salesforce Data Entry", "Expense Reports", "Client Communication"],
+    "typicalNeedsTags": [],
+    "searchLoad": null
+  },
+  "Senior Project Coordinator": {
+    "domains": [
+      "Project & Search Coordination",
+      "Client & Candidate Service Excellence",
+      "Documentation, Reporting & Data Integrity",
+      "Business Development Support",
+      "Technical Proficiency",
+      "Adaptability & Problem Solving",
+      "Advanced Salesforce Reporting & Dashboards",
+      "Pitch Deck Creation & Marketing Materials",
+      "BD Campaign Management & ROI Tracking",
+      "Cross-Functional Collaboration",
+      "Event Logistics, Planning & Budgeting"
+    ],
+    "typicalSkillsTags": ["PowerPoint", "Excel", "Salesforce Reporting", "Pitch Decks", "BD Campaigns", "Event Planning", "Calendar Management"],
+    "typicalNeedsTags": [],
+    "searchLoad": null
+  },
+  "Principal": {
+    "domains": [
+      "Commercial Excellence (subject matter expert, self-generates business)",
+      "Business Development (cross-selling, campaign development, networking)",
+      "Search Lifecycle Management (pitch to offer)",
+      "Client Advisory",
+      "Revenue Targets ($450K Y1, 30% YoY to $1M by Y4)",
+      "Origination Targets (3 assignments Y1, 4 Y2, 5+ Y3)",
+      "Mentoring Associates & Analysts"
+    ],
+    "typicalSkillsTags": ["Client Management", "Business Development", "Search Execution", "Industry Expertise", "Candidate Assessment"],
+    "typicalNeedsTags": ["Pitch Deck Creation", "Market Mapping", "Candidate Outreach", "Schedule Management", "Research Support"],
+    "searchLoad": null
+  },
+  "Partner": {
+    "domains": [
+      "Client Management & Relationship Development",
+      "Business Development & Revenue Generation",
+      "Industry Expertise & Thought Leadership",
+      "Candidate Assessment & Negotiation",
+      "Practice Leadership",
+      "Team Development & Mentoring"
+    ],
+    "typicalSkillsTags": ["Client Management", "Business Development", "Industry Expertise", "Candidate Assessment", "Negotiation", "Thought Leadership"],
+    "typicalNeedsTags": ["Pitch Deck Creation", "Market Mapping", "Candidate Outreach", "Schedule Management", "Status Reports", "Research Support", "BD Campaign Tracking"],
+    "searchLoad": null
+  },
+  "Managing Partner": {
+    "domains": [
+      "Firm Leadership & Strategy",
+      "Client Management & Relationship Development",
+      "Business Development & Revenue Generation",
+      "Practice P&L Management",
+      "Industry Expertise & Thought Leadership",
+      "Candidate Assessment & Negotiation",
+      "Team Development & Mentoring"
+    ],
+    "typicalSkillsTags": ["Client Management", "Business Development", "Industry Expertise", "Candidate Assessment", "Negotiation", "Thought Leadership", "Practice Leadership"],
+    "typicalNeedsTags": ["Pitch Deck Creation", "Market Mapping", "Candidate Outreach", "Schedule Management", "Status Reports", "Research Support", "BD Campaign Tracking"],
+    "searchLoad": null
+  },
+  "Managing Director": {
+    "domains": [
+      "Client Management",
+      "Search Execution Excellence",
+      "Business Development",
+      "Candidate Assessment",
+      "Industry Knowledge"
+    ],
+    "typicalSkillsTags": ["Client Management", "Search Execution", "Candidate Assessment", "Business Development"],
+    "typicalNeedsTags": ["Market Mapping", "Candidate Outreach", "Schedule Management", "Status Reports"],
+    "searchLoad": null
+  },
+  "Head of Research": {
+    "domains": [
+      "Research Function Leadership",
+      "Research Strategy & Methodology",
+      "Team Management & Development",
+      "Industry Intelligence",
+      "Quality Assurance"
+    ],
+    "typicalSkillsTags": ["Research Leadership", "Research Strategy", "Team Management", "Industry Intelligence"],
+    "typicalNeedsTags": [],
+    "searchLoad": null
+  },
+  "Research Analyst": {
+    "domains": [
+      "Research Support",
+      "Candidate Identification",
+      "Data Management",
+      "Industry Learning"
+    ],
+    "typicalSkillsTags": ["Research Support", "Candidate Identification", "Data Management"],
+    "typicalNeedsTags": [],
+    "searchLoad": "Varies"
+  }
+}
