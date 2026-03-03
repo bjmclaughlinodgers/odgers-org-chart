@@ -213,14 +213,14 @@ function PracticeCard({ pm }: { pm: PracticeMetrics }) {
         : 'badge-red';
 
   return (
-    <div className="card p-5 relative overflow-hidden">
+    <div className="card px-6 py-5 relative overflow-hidden">
       {/* Accent bar */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
         style={{ backgroundColor: accentColor }}
       />
 
-      <div className="pl-3">
+      <div className="pl-2">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-sm font-bold text-odgers-navy dark:text-dark-text leading-tight">
