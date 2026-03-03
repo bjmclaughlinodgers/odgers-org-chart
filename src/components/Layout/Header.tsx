@@ -11,18 +11,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { ViewType } from '../../types';
 
 const views: { id: ViewType; label: string; icon: React.ReactNode }[] = [
-  { id: 'executive', label: 'Dashboard', icon: <Gauge size={14} /> },
-  { id: 'orgChart', label: 'Org Chart', icon: <Network size={14} /> },
-  { id: 'hiringConsole', label: 'Hiring', icon: <Briefcase size={14} /> },
-  { id: 'grid', label: 'Grid', icon: <Table2 size={14} /> },
-  { id: 'practiceArea', label: 'Practices', icon: <LayoutDashboard size={14} /> },
-  { id: 'revenue', label: 'Revenue', icon: <DollarSign size={14} /> },
-  { id: 'teamComposition', label: 'Structure', icon: <Users size={14} /> },
-  { id: 'supportBoard', label: 'Support', icon: <Kanban size={14} /> },
-  { id: 'practiceScorecard', label: 'Scorecard', icon: <HeartPulse size={14} /> },
-  { id: 'gapAnalysis', label: 'Gap Analysis', icon: <BarChart3 size={14} /> },
-  { id: 'retentionMatrix', label: 'Retention', icon: <AlertTriangle size={14} /> },
-  { id: 'businessLogic', label: 'Rules', icon: <Scale size={14} /> },
+  { id: 'executive', label: 'Dashboard', icon: <Gauge size={15} /> },
+  { id: 'orgChart', label: 'Org Chart', icon: <Network size={15} /> },
+  { id: 'hiringConsole', label: 'Hiring', icon: <Briefcase size={15} /> },
+  { id: 'grid', label: 'Grid', icon: <Table2 size={15} /> },
+  { id: 'practiceArea', label: 'Practices', icon: <LayoutDashboard size={15} /> },
+  { id: 'revenue', label: 'Revenue', icon: <DollarSign size={15} /> },
+  { id: 'teamComposition', label: 'Structure', icon: <Users size={15} /> },
+  { id: 'supportBoard', label: 'Support', icon: <Kanban size={15} /> },
+  { id: 'practiceScorecard', label: 'Scorecard', icon: <HeartPulse size={15} /> },
+  { id: 'gapAnalysis', label: 'Gap Analysis', icon: <BarChart3 size={15} /> },
+  { id: 'retentionMatrix', label: 'Retention', icon: <AlertTriangle size={15} /> },
+  { id: 'businessLogic', label: 'Rules', icon: <Scale size={15} /> },
 ];
 
 export function Header() {
@@ -45,16 +45,16 @@ export function Header() {
         </div>
       )}
 
-      <div className="flex items-center justify-between px-5 h-12">
+      <div className="flex items-center justify-between px-5 h-14">
         {/* Logo / Title */}
-        <div className="flex items-center gap-3.5 min-w-[210px]">
+        <div className="flex items-center gap-3.5 min-w-[220px]">
           <img
             src="/odgers-logo-small.png"
             alt="Odgers Berndtson"
-            className="h-7 w-auto"
+            className="h-8 w-auto"
           />
           <div className="border-l border-gray-200 dark:border-gray-700 pl-3.5">
-            <h1 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 leading-tight font-heading tracking-tight">
+            <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight font-heading tracking-tight">
               Odgers Berndtson US
             </h1>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight tracking-wide uppercase">
@@ -64,13 +64,13 @@ export function Header() {
         </div>
 
         {/* View Tabs -- Apple-style segmented control */}
-        <nav className="flex items-center bg-gray-100/80 dark:bg-gray-800/60 rounded-lg p-0.5 gap-0.5 overflow-x-auto scrollbar-hidden">
+        <nav className="flex items-center bg-gray-100/80 dark:bg-gray-800/60 rounded-lg p-1 gap-1 overflow-x-auto scrollbar-hidden">
           {views.map(v => (
             <button
               key={v.id}
               onClick={() => setActiveView(v.id)}
               className={[
-                'relative flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all duration-300 ease-in-out whitespace-nowrap',
+                'relative flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all duration-300 ease-in-out whitespace-nowrap',
                 activeView === v.id
                   ? 'bg-[#00857C] text-white shadow-sm shadow-[#00857C]/25'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-700/50',

@@ -83,6 +83,113 @@ export function downloadTemplate(people?: Person[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// CSV escape helper
+// ---------------------------------------------------------------------------
+
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// ---------------------------------------------------------------------------
+// Open Seats template
+// ---------------------------------------------------------------------------
+
+export const OPEN_SEAT_COLUMNS: TemplateColumn[] = [
+  { key: 'id', header: 'ID', required: false, type: 'string' },
+  { key: 'title', header: 'Role Title', required: true, type: 'string' },
+  { key: 'band', header: 'Band', required: false, type: 'string', enumValues: BAND_ORDER as string[] },
+  { key: 'practiceArea', header: 'Practice Area', required: true, type: 'string' },
+  { key: 'office', header: 'Office', required: false, type: 'string', enumValues: VALID_OFFICES },
+  { key: 'hiringPriority', header: 'Priority', required: false, type: 'string', enumValues: ['Critical', 'High', 'Medium', 'Low'] },
+  { key: 'recruitingStatus', header: 'Recruiting Status', required: false, type: 'string', enumValues: ['Not Started', 'Sourcing', 'Screening', 'Interviewing', 'Offer', 'Closed'] },
+  { key: 'recruiterType', header: 'Recruiter Type', required: false, type: 'string', enumValues: ['Internal', 'Retained Search', 'Contingency', 'Direct Sourcing'] },
+  { key: 'recruiterName', header: 'Recruiter / Firm', required: false, type: 'string' },
+  { key: 'targetStartDate', header: 'Target Start Date', required: false, type: 'date' },
+  { key: 'budgetedCompensation', header: 'Budgeted Compensation', required: false, type: 'string' },
+  { key: 'recruitingFeeStructure', header: 'Fee Structure', required: false, type: 'string' },
+  { key: 'recruitingSpendActual', header: 'Actual Spend', required: false, type: 'number' },
+  { key: 'recruitingSpendCommitted', header: 'Committed Spend', required: false, type: 'number' },
+  { key: 'recruitingSpendProjected', header: 'Projected Spend', required: false, type: 'number' },
+  { key: 'reportsTo', header: 'Reports To (ID)', required: false, type: 'string' },
+  { key: 'jobSpec', header: 'Job Specification', required: false, type: 'string' },
+  { key: 'recruitingNotes', header: 'Recruiting Notes', required: false, type: 'string' },
+];
+
+export function downloadOpenSeatsTemplate(people?: Person[]): void {
+  const headers = OPEN_SEAT_COLUMNS.map(c => c.header);
+  const openSeats = people?.filter(p => p.status === 'Open Seat') ?? [];
+
+  const rows = openSeats.map(seat =>
+    OPEN_SEAT_COLUMNS.map(col => csvEscape((seat as unknown as Record<string, unknown>)[col.key])).join(',')
+  );
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = openSeats.length > 0 ? 'odgers-open-seats.csv' : 'odgers-open-seats-template.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// ---------------------------------------------------------------------------
+// Candidates template
+// ---------------------------------------------------------------------------
+
+export const CANDIDATE_COLUMNS: TemplateColumn[] = [
+  { key: 'seatId', header: 'Seat ID', required: true, type: 'string' },
+  { key: 'seatTitle', header: 'Seat Title (reference)', required: false, type: 'string' },
+  { key: 'candidateName', header: 'Candidate Name', required: true, type: 'string' },
+  { key: 'currentTitle', header: 'Current Title', required: false, type: 'string' },
+  { key: 'currentCompany', header: 'Current Company', required: false, type: 'string' },
+  { key: 'location', header: 'Location', required: false, type: 'string' },
+  { key: 'stage', header: 'Stage', required: false, type: 'string', enumValues: ['Identified', 'Screening', 'First Interview', 'Final Interview', 'Offer Extended', 'Offer Accepted', 'Placed', 'Declined', 'Withdrawn'] },
+  { key: 'source', header: 'Source', required: false, type: 'string' },
+  { key: 'isFinalist', header: 'Finalist', required: false, type: 'boolean' },
+  { key: 'linkedinUrl', header: 'LinkedIn URL', required: false, type: 'string' },
+  { key: 'notes', header: 'Notes', required: false, type: 'string' },
+];
+
+export function downloadCandidatesTemplate(people?: Person[]): void {
+  const headers = CANDIDATE_COLUMNS.map(c => c.header);
+  const openSeats = people?.filter(p => p.status === 'Open Seat') ?? [];
+
+  const allRows: string[] = [];
+  for (const seat of openSeats) {
+    if ((seat.candidates?.length ?? 0) > 0) {
+      for (const c of seat.candidates!) {
+        allRows.push([
+          csvEscape(seat.id), csvEscape(seat.title), csvEscape(c.name),
+          csvEscape(c.currentTitle), csvEscape(c.currentCompany), csvEscape(c.location),
+          csvEscape(c.stage), csvEscape(c.source), c.isFinalist ? 'TRUE' : 'FALSE',
+          csvEscape(c.linkedinUrl), csvEscape(c.notes),
+        ].join(','));
+      }
+    } else {
+      // Include seat reference row with blank candidate fields
+      allRows.push([
+        csvEscape(seat.id), csvEscape(seat.title), '', '', '', '',
+        'Identified', '', 'FALSE', '', '',
+      ].join(','));
+    }
+  }
+
+  const csv = [headers.join(','), ...allRows].join('\n');
+  const hasCandidates = openSeats.some(s => (s.candidates?.length ?? 0) > 0);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = hasCandidates ? 'odgers-candidates.csv' : 'odgers-candidates-template.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// ---------------------------------------------------------------------------
 // File parsing (CSV & Excel)
 // ---------------------------------------------------------------------------
 

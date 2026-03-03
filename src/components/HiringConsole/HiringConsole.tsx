@@ -879,19 +879,32 @@ export function HiringConsole() {
 
           {/* Table Body */}
           <div className="stagger-children">
-            {sortedSeats.map((seat) => {
+            {sortedSeats.map((seat, idx) => {
               const isExpanded = expandedId === seat.id;
               const priority = seat.hiringPriority ?? 'Low';
               const status = seat.recruitingStatus ?? 'Not Started';
+              const isEven = idx % 2 === 0;
+
+              // Priority-based left border color
+              const priorityBorder: Record<string, string> = {
+                Critical: 'border-l-red-500',
+                High: 'border-l-amber-500',
+                Medium: 'border-l-[#00857C]',
+                Low: 'border-l-gray-300 dark:border-l-gray-600',
+              };
 
               return (
-                <div key={seat.id}>
+                <div key={seat.id} className={`${isExpanded ? 'ring-1 ring-[#00857C]/20 dark:ring-teal-500/20 rounded-lg overflow-hidden my-1.5' : ''}`}>
                   <div
-                    className={`table-row grid grid-cols-[1.3fr_0.8fr_85px_95px_0.9fr_65px_70px_80px_90px_32px] gap-2 items-center cursor-pointer select-none transition-colors duration-100 ${
-                      isExpanded
-                        ? 'bg-odgers-teal-light/40 dark:bg-dark-elevated'
-                        : ''
-                    }`}
+                    className={`table-row grid grid-cols-[1.3fr_0.8fr_85px_95px_0.9fr_65px_70px_80px_90px_32px] gap-2 items-center cursor-pointer select-none transition-all duration-150
+                      border-l-[3px] ${priorityBorder[priority] ?? 'border-l-gray-300 dark:border-l-gray-600'}
+                      ${isExpanded
+                        ? 'bg-[#00857C]/[0.06] dark:bg-teal-500/[0.08] !border-b-transparent'
+                        : isEven
+                          ? 'bg-gray-50/60 dark:bg-white/[0.015]'
+                          : ''
+                      }
+                      hover:bg-[#00857C]/[0.04] dark:hover:bg-teal-500/[0.05]`}
                     onClick={() => handleToggleExpand(seat.id)}
                     role="row"
                     aria-expanded={isExpanded}
