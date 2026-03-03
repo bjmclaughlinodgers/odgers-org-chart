@@ -1,9 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useOrgStore } from '../../stores/orgStore';
 import { useUIStore } from '../../stores/uiStore';
-import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
+import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil } from 'lucide-react';
 import { PipelineFunnel } from './PipelineFunnel';
 import { CandidateTracker } from './CandidateTracker';
+import {
+  HIRING_PRIORITY_OPTIONS,
+  RECRUITING_STATUS_OPTIONS,
+  RECRUITER_TYPE_OPTIONS,
+  getDynamicPracticeOptions,
+  BAND_OPTIONS,
+} from '../../constants/editOptions';
 import type { Person } from '../../types';
 import type { RecruitingStatus, HiringPriority } from '../../types/enums';
 
@@ -371,75 +378,236 @@ function FilterBar({
 }
 
 // ---------------------------------------------------------------------------
-// Expanded Row Panel
+// Shared inline-edit styles
+// ---------------------------------------------------------------------------
+
+const fieldInputCls = `w-full text-xs px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-gray-700
+  bg-white dark:bg-[#0f1419] text-gray-900 dark:text-gray-100
+  placeholder:text-gray-400 dark:placeholder:text-gray-600
+  focus:outline-none focus:ring-1 focus:ring-[#00857C] dark:focus:ring-teal-500
+  transition-shadow duration-200`;
+
+const fieldLabelCls = 'text-[11px] font-semibold text-gray-400 dark:text-gray-500 mb-0.5 block';
+
+// ---------------------------------------------------------------------------
+// Expanded Row Panel — fully editable
 // ---------------------------------------------------------------------------
 
 function ExpandedPanel({ seat }: { seat: Person }) {
+  const updatePerson = useOrgStore(s => s.updatePerson);
+
+  const update = useCallback(
+    (field: string, value: unknown) => {
+      updatePerson(seat.id, { [field]: value } as Partial<Person>);
+    },
+    [seat.id, updatePerson],
+  );
+
+  const practiceOptions = getDynamicPracticeOptions();
+
   return (
-    <div className="animate-fade-in-up bg-gray-50/70 dark:bg-dark-surface-2/70 border-t border-gray-100 dark:border-dark-border px-6 py-5">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Details */}
+    <div
+      className="animate-fade-in-up bg-gray-50/70 dark:bg-dark-surface-2/70 border-t border-gray-100 dark:border-dark-border px-6 py-5"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
+        {/* ---- Left: Editable Seat Details ---- */}
         <div className="space-y-4">
-          {/* Job Spec */}
-          <div>
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
-              Job Specification
-            </h4>
-            <div className="card-flat p-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
-              {seat.jobSpec || 'No spec provided.'}
+          {/* Section label */}
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Pencil size={11} className="text-gray-400 dark:text-gray-500" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              Seat Details
+            </span>
+          </div>
+
+          {/* Row 1: Role Title, Practice, Band */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={fieldLabelCls}>Role Title</label>
+              <input
+                type="text"
+                className={fieldInputCls}
+                value={seat.title}
+                onChange={e => update('title', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Practice</label>
+              <select
+                className={fieldInputCls}
+                value={seat.practiceArea}
+                onChange={e => update('practiceArea', e.target.value)}
+              >
+                {practiceOptions.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Band</label>
+              <select
+                className={fieldInputCls}
+                value={seat.band ?? ''}
+                onChange={e => update('band', e.target.value)}
+              >
+                <option value="">--</option>
+                {BAND_OPTIONS.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Recruiting Notes */}
-          <div>
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
-              Recruiting Notes
-            </h4>
-            <div className="card-flat p-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
-              {seat.recruitingNotes || 'No notes.'}
+          {/* Row 2: Priority, Recruiting Status, Recruiter Type, Recruiter Name */}
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className={fieldLabelCls}>Priority</label>
+              <select
+                className={fieldInputCls}
+                value={seat.hiringPriority ?? ''}
+                onChange={e => update('hiringPriority', e.target.value || undefined)}
+              >
+                <option value="">--</option>
+                {HIRING_PRIORITY_OPTIONS.map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Recruiting Status</label>
+              <select
+                className={fieldInputCls}
+                value={seat.recruitingStatus ?? ''}
+                onChange={e => update('recruitingStatus', e.target.value || undefined)}
+              >
+                <option value="">--</option>
+                {RECRUITING_STATUS_OPTIONS.map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Recruiter Type</label>
+              <select
+                className={fieldInputCls}
+                value={seat.recruiterType ?? ''}
+                onChange={e => update('recruiterType', e.target.value || undefined)}
+              >
+                <option value="">--</option>
+                {RECRUITER_TYPE_OPTIONS.map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Recruiter / Firm</label>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="Name or firm"
+                value={seat.recruiterName ?? ''}
+                onChange={e => update('recruiterName', e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Target, Budget & Spend summary */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-gray-500 dark:text-gray-400">
-            {seat.targetStartDate && (
-              <div>
-                <span className="font-semibold text-odgers-navy dark:text-dark-text">Target Start: </span>
-                {new Date(seat.targetStartDate).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </div>
-            )}
-            {seat.budgetedCompensation && (
-              <div>
-                <span className="font-semibold text-odgers-navy dark:text-dark-text">Budget: </span>
-                {seat.budgetedCompensation}
-              </div>
-            )}
-            {seat.recruitingFeeStructure && (
-              <div>
-                <span className="font-semibold text-odgers-navy dark:text-dark-text">Fee: </span>
-                {seat.recruitingFeeStructure}
-              </div>
-            )}
-            {(seat.recruitingSpendActual ?? 0) > 0 && (
-              <div>
-                <span className="font-semibold text-red-600 dark:text-red-400">Actual Spend: </span>
-                <span className="text-red-600 dark:text-red-400">{fmtCurrency(seat.recruitingSpendActual ?? 0)}</span>
-              </div>
-            )}
-            {(seat.recruitingSpendCommitted ?? 0) > 0 && (
-              <div>
-                <span className="font-semibold text-amber-600 dark:text-amber-400">Committed: </span>
-                <span className="text-amber-600 dark:text-amber-400">{fmtCurrency(seat.recruitingSpendCommitted ?? 0)}</span>
-              </div>
-            )}
+          {/* Row 3: Target Start, Budget, Fee Structure */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={fieldLabelCls}>Target Start Date</label>
+              <input
+                type="date"
+                className={fieldInputCls}
+                value={seat.targetStartDate ?? ''}
+                onChange={e => update('targetStartDate', e.target.value || undefined)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Budgeted Compensation</label>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="e.g. $200K"
+                value={seat.budgetedCompensation ?? ''}
+                onChange={e => update('budgetedCompensation', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Fee Structure</label>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="e.g. 30% retained"
+                value={seat.recruitingFeeStructure ?? ''}
+                onChange={e => update('recruitingFeeStructure', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Spend (Actual / Committed / Projected) */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={fieldLabelCls}>Actual Spend ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                className={fieldInputCls}
+                value={seat.recruitingSpendActual ?? ''}
+                onChange={e => update('recruitingSpendActual', e.target.value ? Number(e.target.value) : 0)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Committed ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                className={fieldInputCls}
+                value={seat.recruitingSpendCommitted ?? ''}
+                onChange={e => update('recruitingSpendCommitted', e.target.value ? Number(e.target.value) : 0)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Projected ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                className={fieldInputCls}
+                value={seat.recruitingSpendProjected ?? ''}
+                onChange={e => update('recruitingSpendProjected', e.target.value ? Number(e.target.value) : 0)}
+              />
+            </div>
+          </div>
+
+          {/* Job Spec (editable textarea) */}
+          <div>
+            <label className={fieldLabelCls}>Job Specification</label>
+            <textarea
+              rows={4}
+              className={`${fieldInputCls} resize-y`}
+              placeholder="Describe the role, requirements, and ideal profile..."
+              value={seat.jobSpec ?? ''}
+              onChange={e => update('jobSpec', e.target.value)}
+            />
+          </div>
+
+          {/* Recruiting Notes (editable textarea) */}
+          <div>
+            <label className={fieldLabelCls}>Recruiting Notes</label>
+            <textarea
+              rows={3}
+              className={`${fieldInputCls} resize-y`}
+              placeholder="Internal notes on the search..."
+              value={seat.recruitingNotes ?? ''}
+              onChange={e => update('recruitingNotes', e.target.value)}
+            />
           </div>
         </div>
 
-        {/* Right: Candidate Tracker */}
+        {/* ---- Right: Candidate Tracker ---- */}
         <div>
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" />

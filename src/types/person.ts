@@ -84,6 +84,7 @@ export interface Person {
   jobSpec?: string;
   recruitingSpendActual?: number;
   recruitingSpendCommitted?: number;
+  recruitingSpendProjected?: number;
   recruitingFeeStructure?: string;
 
   // Notes
