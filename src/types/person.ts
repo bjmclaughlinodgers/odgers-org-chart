@@ -18,6 +18,7 @@ export interface Candidate {
   notes?: string;
   addedDate: string;
   isFinalist: boolean;
+  linkedinUrl?: string;
 }
 
 export interface Person {
