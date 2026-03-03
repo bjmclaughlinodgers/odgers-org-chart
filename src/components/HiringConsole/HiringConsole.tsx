@@ -4,6 +4,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { PipelineFunnel } from './PipelineFunnel';
 import { CandidateTracker } from './CandidateTracker';
+import { ErrorBoundary } from '../ErrorBoundary';
 import {
   HIRING_PRIORITY_OPTIONS,
   RECRUITING_STATUS_OPTIONS,
@@ -613,11 +614,13 @@ function ExpandedPanel({ seat, onPlaceCandidate }: { seat: Person; onPlaceCandid
             <Users className="w-3.5 h-3.5" />
             Candidates ({seat.candidates?.length ?? 0})
           </h4>
-          <CandidateTracker
-            personId={seat.id}
-            candidates={seat.candidates ?? []}
-            onPlaceCandidate={onPlaceCandidate}
-          />
+          <ErrorBoundary fallbackLabel="Candidate Tracker">
+            <CandidateTracker
+              personId={seat.id}
+              candidates={seat.candidates ?? []}
+              onPlaceCandidate={onPlaceCandidate}
+            />
+          </ErrorBoundary>
         </div>
       </div>
     </div>

@@ -37,22 +37,46 @@ interface LinkedInResult {
 }
 
 async function lookupLinkedIn(url: string): Promise<LinkedInResult> {
-  const res = await fetch('/api/rocketreach-lookup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ linkedinUrl: url }),
-  });
+  let res: Response;
+  try {
+    res = await fetch('/api/rocketreach-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ linkedinUrl: url }),
+    });
+  } catch (networkErr) {
+    console.error('[LinkedIn Lookup] Network error:', networkErr);
+    throw new Error('Network error — could not reach the server');
+  }
 
-  const data = await res.json();
+  let data: Record<string, unknown>;
+  try {
+    data = await res.json();
+  } catch (parseErr) {
+    console.error('[LinkedIn Lookup] JSON parse error:', parseErr, 'Status:', res.status);
+    throw new Error(`Server returned invalid response (${res.status})`);
+  }
 
   if (!res.ok) {
     if (res.status === 202 || data.retryable) {
-      throw new Error('RETRYABLE: ' + (data.error ?? 'Still processing'));
+      throw new Error('RETRYABLE: ' + (String(data.error ?? 'Still processing')));
     }
-    throw new Error(data.error ?? `Lookup failed (${res.status})`);
+    throw new Error(String(data.error ?? `Lookup failed (${res.status})`));
   }
 
-  return data as LinkedInResult;
+  // Validate result shape — ensure we have at least a name
+  const result: LinkedInResult = {
+    name: String(data.name ?? ''),
+    firstName: String(data.firstName ?? ''),
+    lastName: String(data.lastName ?? ''),
+    currentTitle: String(data.currentTitle ?? ''),
+    currentCompany: String(data.currentCompany ?? ''),
+    location: data.location ? String(data.location) : undefined,
+    linkedinUrl: String(data.linkedinUrl ?? url),
+    profilePic: data.profilePic ? String(data.profilePic) : undefined,
+  };
+
+  return result;
 }
 
 /* =========================================================
@@ -199,48 +223,54 @@ export function CandidateTracker({
   };
 
   const handleLinkedInLookup = async () => {
-    const url = linkedinInput.trim();
-    if (!url) return;
+    try {
+      const url = linkedinInput.trim();
+      if (!url) return;
 
-    if (!url.includes('linkedin.com/in/')) {
-      setLookupError('Please paste a LinkedIn profile URL (e.g. linkedin.com/in/...)');
-      return;
-    }
-
-    setLookupLoading(true);
-    setLookupError(null);
-
-    let attempts = 0;
-    const maxAttempts = 3;
-
-    while (attempts < maxAttempts) {
-      try {
-        const result = await lookupLinkedIn(url);
-        setLookupResult(result);
-
-        // Pre-fill form with lookup data
-        setFormName(result.name);
-        setFormTitle(result.currentTitle);
-        setFormCompany(result.currentCompany);
-        setFormLinkedinUrl(result.linkedinUrl || url);
-        setFormLocation(result.location ?? '');
-        setFormProfilePic(result.profilePic ?? '');
-        setFormSource('LinkedIn');
-        setFormStage('Identified');
-
-        setLookupLoading(false);
-        return;
-      } catch (err) {
-        const msg = (err as Error).message;
-        if (msg.startsWith('RETRYABLE:') && attempts < maxAttempts - 1) {
-          attempts++;
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
-        }
-        setLookupError(msg.replace('RETRYABLE: ', ''));
-        setLookupLoading(false);
+      if (!url.includes('linkedin.com/in/')) {
+        setLookupError('Please paste a LinkedIn profile URL (e.g. linkedin.com/in/...)');
         return;
       }
+
+      setLookupLoading(true);
+      setLookupError(null);
+
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        try {
+          const result = await lookupLinkedIn(url);
+          setLookupResult(result);
+
+          // Pre-fill form with lookup data
+          setFormName(result.name);
+          setFormTitle(result.currentTitle);
+          setFormCompany(result.currentCompany);
+          setFormLinkedinUrl(result.linkedinUrl || url);
+          setFormLocation(result.location ?? '');
+          setFormProfilePic(result.profilePic ?? '');
+          setFormSource('LinkedIn');
+          setFormStage('Identified');
+
+          setLookupLoading(false);
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
+          if (msg.startsWith('RETRYABLE:') && attempts < maxAttempts - 1) {
+            attempts++;
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          setLookupError(msg.replace('RETRYABLE: ', ''));
+          setLookupLoading(false);
+          return;
+        }
+      }
+    } catch (outerErr) {
+      console.error('[LinkedIn Lookup] Unexpected error:', outerErr);
+      setLookupError('Unexpected error during lookup');
+      setLookupLoading(false);
     }
   };
 
@@ -635,33 +665,51 @@ export function CandidateTracker({
                     if (e.key === 'Escape') resetForm();
                   }}
                   onPaste={e => {
-                    // Auto-trigger lookup on paste
-                    const pasted = e.clipboardData.getData('text');
-                    if (pasted.includes('linkedin.com/in/')) {
-                      setLinkedinInput(pasted);
-                      // Slight delay so state updates
-                      setTimeout(() => {
-                        setLookupLoading(true);
-                        setLookupError(null);
-                        lookupLinkedIn(pasted.trim())
-                          .then(result => {
-                            setLookupResult(result);
-                            setFormName(result.name);
-                            setFormTitle(result.currentTitle);
-                            setFormCompany(result.currentCompany);
-                            setFormLinkedinUrl(result.linkedinUrl || pasted.trim());
-                            setFormLocation(result.location ?? '');
-                            setFormProfilePic(result.profilePic ?? '');
-                            setFormSource('LinkedIn');
-                            setFormStage('Identified');
+                    try {
+                      // Auto-trigger lookup on paste
+                      const pasted = e.clipboardData?.getData('text') ?? '';
+                      if (pasted.includes('linkedin.com/in/')) {
+                        setLinkedinInput(pasted);
+                        // Slight delay so state updates
+                        setTimeout(() => {
+                          try {
+                            setLookupLoading(true);
+                            setLookupError(null);
+                            lookupLinkedIn(pasted.trim())
+                              .then(result => {
+                                try {
+                                  setLookupResult(result);
+                                  setFormName(result.name);
+                                  setFormTitle(result.currentTitle);
+                                  setFormCompany(result.currentCompany);
+                                  setFormLinkedinUrl(result.linkedinUrl || pasted.trim());
+                                  setFormLocation(result.location ?? '');
+                                  setFormProfilePic(result.profilePic ?? '');
+                                  setFormSource('LinkedIn');
+                                  setFormStage('Identified');
+                                  setLookupLoading(false);
+                                } catch (stateErr) {
+                                  console.error('[LinkedIn Paste] Error setting result state:', stateErr);
+                                  setLookupError('Error processing lookup result');
+                                  setLookupLoading(false);
+                                }
+                              })
+                              .catch(err => {
+                                const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
+                                console.error('[LinkedIn Paste] Lookup error:', msg);
+                                setLookupError(msg.replace('RETRYABLE: ', ''));
+                                setLookupLoading(false);
+                              });
+                          } catch (outerErr) {
+                            console.error('[LinkedIn Paste] Outer error:', outerErr);
+                            setLookupError('Unexpected error starting lookup');
                             setLookupLoading(false);
-                          })
-                          .catch(err => {
-                            setLookupError((err as Error).message.replace('RETRYABLE: ', ''));
-                            setLookupLoading(false);
-                          });
-                      }, 50);
-                      e.preventDefault();
+                          }
+                        }, 50);
+                        e.preventDefault();
+                      }
+                    } catch (pasteErr) {
+                      console.error('[LinkedIn Paste] Paste handler error:', pasteErr);
                     }
                   }}
                   className={`w-full ${inputCls} !pl-8`}

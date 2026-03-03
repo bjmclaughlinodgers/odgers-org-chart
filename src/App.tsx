@@ -2,6 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useOrgStore } from './stores/orgStore';
 import { useUIStore } from './stores/uiStore';
 import { AppLayout } from './components/Layout/AppLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { FilterBar } from './components/Filters/FilterBar';
 import { SearchModal } from './components/Filters/SearchModal';
 import { OrgChartView } from './components/OrgChart/OrgChartView';
@@ -165,7 +166,9 @@ function AppContent() {
     <RuleResultsProvider>
       <AppLayout>
         {activeView !== 'executive' && activeView !== 'businessLogic' && activeView !== 'hiringConsole' && <FilterBar />}
-        <ViewRouter />
+        <ErrorBoundary fallbackLabel={activeView}>
+          <ViewRouter />
+        </ErrorBoundary>
       </AppLayout>
       <SearchModal />
       <PlanningChangeLog />
