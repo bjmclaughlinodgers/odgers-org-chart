@@ -477,7 +477,7 @@ function EmptyState() {
 // ---------------------------------------------------------------------------
 
 export function HiringConsole() {
-  const getOpenSeats = useOrgStore((s) => s.getOpenSeats);
+  const people = useOrgStore((s) => s.people);
   const selectPerson = useUIStore((s) => s.selectPerson);
 
   // Local state
@@ -489,8 +489,8 @@ export function HiringConsole() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // All open seats
-  const allSeats = useMemo(() => getOpenSeats(), [getOpenSeats]);
+  // All open seats — subscribe to people array so candidates/fields updates trigger re-render
+  const allSeats = useMemo(() => people.filter(p => p.status === 'Open Seat'), [people]);
 
   // Unique practice areas
   const practiceAreas = useMemo(() => {
