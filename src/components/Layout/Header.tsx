@@ -13,6 +13,7 @@ import type { ViewType } from '../../types';
 const views: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'executive', label: 'Dashboard', icon: <Gauge size={14} /> },
   { id: 'orgChart', label: 'Org Chart', icon: <Network size={14} /> },
+  { id: 'hiringConsole', label: 'Hiring', icon: <Briefcase size={14} /> },
   { id: 'grid', label: 'Grid', icon: <Table2 size={14} /> },
   { id: 'practiceArea', label: 'Practices', icon: <LayoutDashboard size={14} /> },
   { id: 'revenue', label: 'Revenue', icon: <DollarSign size={14} /> },
@@ -22,7 +23,6 @@ const views: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'gapAnalysis', label: 'Gap Analysis', icon: <BarChart3 size={14} /> },
   { id: 'retentionMatrix', label: 'Retention', icon: <AlertTriangle size={14} /> },
   { id: 'businessLogic', label: 'Rules', icon: <Scale size={14} /> },
-  { id: 'hiringConsole', label: 'Hiring', icon: <Briefcase size={14} /> },
 ];
 
 export function Header() {

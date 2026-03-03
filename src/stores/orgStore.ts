@@ -44,6 +44,7 @@ interface OrgStore {
   addCandidate: (personId: string, candidate: Candidate) => void;
   removeCandidate: (personId: string, candidateId: string) => void;
   updateCandidate: (personId: string, candidateId: string, updates: Partial<Candidate>) => void;
+  placeCandidate: (seatId: string, candidateId: string) => void;
   /** Apply a single person change from a realtime event */
   _realtimeUpsert: (person: Person) => void;
   _realtimeDelete: (id: string) => void;
@@ -297,6 +298,84 @@ export const useOrgStore = create<OrgStore>()(
         initSearch(get().people);
         const updated = get().people.find(p => p.id === personId);
         if (updated) upsertPerson(updated);
+      },
+
+      placeCandidate: (seatId, candidateId) => {
+        const seat = get().people.find(p => p.id === seatId);
+        if (!seat) return;
+        const candidate = (seat.candidates ?? []).find(c => c.id === candidateId);
+        if (!candidate) return;
+
+        // Parse candidate name → firstName / lastName
+        const nameParts = candidate.name.trim().split(/\s+/);
+        const firstName = nameParts[0] ?? 'New';
+        const lastName = nameParts.slice(1).join(' ') || 'Hire';
+
+        // Build the new Person from seat + candidate data
+        const newPersonId = uuidv4();
+        const newPerson: Person = {
+          id: newPersonId,
+          firstName,
+          lastName,
+          title: seat.title,
+          band: seat.band,
+          practiceArea: seat.practiceArea,
+          subPracticeSpecialties: [],
+          office: seat.office,
+          employmentType: seat.employmentType,
+          status: 'Active',
+          photoUrl: candidate.profilePic,
+          reportsTo: seat.reportsTo,
+          supportLines: [],
+          practiceAreaLead: false,
+          performanceRating: 'Performer',
+          retentionRisk: 'Low',
+          performanceNotes: '',
+          retentionNotes: '',
+          lastReviewDate: null,
+          isRevenueProducer: seat.isRevenueProducer,
+          currentYearOCE: null,
+          priorYearOCE: null,
+          revenueTarget: seat.revenueTarget,
+          pipelineValue: null,
+          startDate: seat.targetStartDate ?? new Date().toISOString().split('T')[0],
+          lastPayIncreaseDate: null,
+          lastPayIncreasePercent: null,
+          birthday: null,
+          compensationType: seat.compensationType,
+          baseSalary: null,
+          totalOTE: null,
+          employeeFileLink: null,
+          skillsTags: [],
+          needsTags: [],
+          supportRequirements: null,
+          adminNotes: `Placed from open seat. Source: ${candidate.source ?? 'N/A'}`,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        // Atomic update: mark candidate as Placed, close the seat, add the new person
+        set(state => ({
+          people: [
+            ...state.people.map(p => {
+              if (p.id !== seatId) return p;
+              return {
+                ...p,
+                recruitingStatus: 'Closed' as const,
+                candidates: (p.candidates ?? []).map(c =>
+                  c.id === candidateId ? { ...c, stage: 'Placed' as const } : c
+                ),
+                lastUpdated: new Date().toISOString(),
+              };
+            }),
+            newPerson,
+          ],
+        }));
+        initSearch(get().people);
+
+        // Sync both to Supabase
+        const updatedSeat = get().people.find(p => p.id === seatId);
+        if (updatedSeat) upsertPerson(updatedSeat);
+        upsertPerson(newPerson);
       },
 
       // Realtime handlers — update local state without re-syncing to Supabase

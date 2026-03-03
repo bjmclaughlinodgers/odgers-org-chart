@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 import { useOrgStore } from '../../stores/orgStore';
+import { useUIStore } from '../../stores/uiStore';
 import {
   useComputedMetrics,
   computePersonMetrics,
 } from '../../hooks/useComputedMetrics';
 import type { PracticeMetrics } from '../../hooks/useComputedMetrics';
 import type { Person } from '../../types';
-import type { HiringPriority } from '../../types/enums';
+import type { HiringPriority, RecruitingStatus } from '../../types/enums';
 import { PRACTICE_COLORS } from '../../types/enums';
 import { isActivePerson } from '../../utils/personFilters';
+import { Briefcase, Users, ArrowRight, Calendar, Target } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -118,11 +120,18 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function HeroKPIStrip() {
   const { firmMetrics } = useComputedMetrics();
+  const people = useOrgStore(s => s.people);
 
   const profitMargin =
     firmMetrics.totalRevenue > 0
       ? ((firmMetrics.totalRevenue - firmMetrics.totalCompCost) / firmMetrics.totalRevenue) * 100
       : 0;
+
+  // Exclude closed seats from the KPI count
+  const activeOpenSeats = useMemo(
+    () => people.filter(p => p.status === 'Open Seat' && p.recruitingStatus !== 'Closed').length,
+    [people],
+  );
 
   const cards = [
     {
@@ -150,8 +159,8 @@ function HeroKPIStrip() {
     },
     {
       label: 'Open Seats',
-      value: fmtNumber(firmMetrics.openSeatCount),
-      accent: firmMetrics.openSeatCount > 0,
+      value: fmtNumber(activeOpenSeats),
+      accent: activeOpenSeats > 0,
     },
   ];
 
@@ -383,23 +392,41 @@ function PersonAvatar({ person }: { person: Person }) {
 }
 
 // ---------------------------------------------------------------------------
-// Section 3b: Hiring Pipeline
+// Section: Hiring Pipeline — Elevated (Full-width)
 // ---------------------------------------------------------------------------
 
 const PRIORITY_ORDER: HiringPriority[] = ['Critical', 'High', 'Medium', 'Low'];
 
-function HiringPipeline() {
+const STATUS_BADGE: Record<string, string> = {
+  'Not Started': 'badge-gray',
+  Sourcing: 'badge-teal',
+  Screening: 'badge-teal',
+  Interviewing: 'badge-amber',
+  Offer: 'badge-green',
+  Closed: 'badge-green',
+};
+
+function HiringPipelineElevated() {
   const people = useOrgStore((s) => s.people);
+  const setView = useUIStore((s) => s.setActiveView);
 
   const openSeats = useMemo(() => {
     return people
-      .filter((p) => p.status === 'Open Seat')
+      .filter((p) => p.status === 'Open Seat' && p.recruitingStatus !== 'Closed')
       .sort((a, b) => {
         const ai = PRIORITY_ORDER.indexOf(a.hiringPriority ?? 'Low');
         const bi = PRIORITY_ORDER.indexOf(b.hiringPriority ?? 'Low');
         return ai - bi;
       });
   }, [people]);
+
+  // Summary stats
+  const stats = useMemo(() => {
+    const totalCandidates = openSeats.reduce((sum, s) => sum + (s.candidates?.length ?? 0), 0);
+    const inOffer = openSeats.filter(s => s.recruitingStatus === 'Offer').length;
+    const criticalHigh = openSeats.filter(s => s.hiringPriority === 'Critical' || s.hiringPriority === 'High').length;
+    return { totalCandidates, inOffer, criticalHigh };
+  }, [openSeats]);
 
   // Group by priority
   const grouped = useMemo(() => {
@@ -413,39 +440,74 @@ function HiringPipeline() {
   }, [openSeats]);
 
   return (
-    <div className="card overflow-hidden flex flex-col">
-      <div className="p-5 pb-3">
-        <div className="flex items-center justify-between">
+    <section className="animate-fade-in-up">
+      <div className="flex items-center justify-between mb-4">
+        <div>
           <h2 className="section-title">Hiring Pipeline</h2>
-          <span className="badge badge-teal">{openSeats.length}</span>
+          <p className="section-subtitle">Active open seats and recruiting progress</p>
         </div>
-        <p className="section-subtitle">Open seats by hiring priority</p>
+        <button
+          onClick={() => setView('hiringConsole')}
+          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#00857C] dark:text-teal-400
+                     hover:text-[#006b63] dark:hover:text-teal-300 transition-colors duration-200
+                     px-3 py-1.5 rounded-lg border border-[#00857C]/20 dark:border-teal-400/20
+                     hover:bg-[#00857C]/5 dark:hover:bg-teal-400/5"
+        >
+          View Console
+          <ArrowRight size={13} />
+        </button>
       </div>
 
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="stat-card !p-3 flex flex-col">
+          <p className="stat-label !text-[10px]">Active Seats</p>
+          <p className="text-xl font-extrabold text-odgers-navy dark:text-dark-text tabular-nums">{openSeats.length}</p>
+        </div>
+        <div className="stat-card !p-3 flex flex-col">
+          <p className="stat-label !text-[10px]">Critical / High</p>
+          <p className={`text-xl font-extrabold tabular-nums ${stats.criticalHigh > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
+            {stats.criticalHigh}
+          </p>
+        </div>
+        <div className="stat-card !p-3 flex flex-col">
+          <p className="stat-label !text-[10px]">Pipeline Candidates</p>
+          <p className="text-xl font-extrabold text-odgers-navy dark:text-dark-text tabular-nums">{stats.totalCandidates}</p>
+        </div>
+        <div className="stat-card !p-3 flex flex-col">
+          <p className="stat-label !text-[10px]">In Offer Stage</p>
+          <p className={`text-xl font-extrabold tabular-nums ${stats.inOffer > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+            {stats.inOffer}
+          </p>
+        </div>
+      </div>
+
+      {/* Seats grid */}
       {openSeats.length === 0 ? (
-        <div className="px-5 pb-5 text-sm text-gray-400 italic">
-          No open seats.
+        <div className="card p-8 text-center">
+          <Briefcase className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500">No active open seats</p>
         </div>
       ) : (
-        <div className="overflow-y-auto max-h-[420px] flex-1 px-1">
-          <div className="stagger-children space-y-4 p-4 pt-1">
-            {PRIORITY_ORDER.map((priority) => {
-              const seats = grouped.get(priority);
-              if (!seats || seats.length === 0) return null;
-              return (
-                <div key={priority}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <PriorityBadge priority={priority} />
-                    <span className="text-[11px] text-gray-400 font-medium">
-                      {seats.length} {seats.length === 1 ? 'seat' : 'seats'}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {seats.map((seat) => (
-                      <div
-                        key={seat.id}
-                        className="card-flat px-3 py-2.5 flex items-center justify-between gap-2"
-                      >
+        <div className="stagger-children space-y-4">
+          {PRIORITY_ORDER.map((priority) => {
+            const seats = grouped.get(priority);
+            if (!seats || seats.length === 0) return null;
+            return (
+              <div key={priority}>
+                <div className="flex items-center gap-2 mb-2">
+                  <PriorityBadge priority={priority} />
+                  <span className="text-[11px] text-gray-400 font-medium">
+                    {seats.length} {seats.length === 1 ? 'seat' : 'seats'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {seats.map((seat) => (
+                    <div
+                      key={seat.id}
+                      className="card-flat px-4 py-3 flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-odgers-navy dark:text-dark-text truncate leading-tight">
                             {seat.title}
@@ -454,28 +516,31 @@ function HiringPipeline() {
                             {seat.practiceArea} {'\u00B7'} {seat.band}
                           </p>
                         </div>
-                        <div className="text-right shrink-0">
-                          {seat.targetStartDate && (
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                              Target: {fmtDate(seat.targetStartDate)}
-                            </p>
-                          )}
-                          {seat.budgetedCompensation && (
-                            <p className="text-[10px] text-gray-300 dark:text-gray-600">
-                              {seat.budgetedCompensation}
-                            </p>
-                          )}
-                        </div>
+                        <span className={`badge ${STATUS_BADGE[seat.recruitingStatus ?? 'Not Started'] ?? 'badge-gray'} text-[9px] flex-shrink-0`}>
+                          {seat.recruitingStatus ?? 'Not Started'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500">
+                        <span className="inline-flex items-center gap-1">
+                          <Users size={10} />
+                          {seat.candidates?.length ?? 0} candidates
+                        </span>
+                        {seat.targetStartDate && (
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar size={10} />
+                            {fmtDate(seat.targetStartDate)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -562,17 +627,17 @@ export default function ExecutiveSummary() {
       {/* Section 1: Hero KPI Strip */}
       <HeroKPIStrip />
 
+      {/* Section 2: Hiring Pipeline (elevated, full-width) */}
+      <HiringPipelineElevated />
+
       {/* Attrition risk visual */}
       <AttritionRiskBar />
 
-      {/* Section 2: Practice Health Grid */}
+      {/* Section 3: Practice Health Grid */}
       <PracticeHealthGrid />
 
-      {/* Section 3: Two-column bottom */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PeopleAtRisk />
-        <HiringPipeline />
-      </section>
+      {/* Section 4: People at Risk (full-width) */}
+      <PeopleAtRisk />
     </div>
   );
 }

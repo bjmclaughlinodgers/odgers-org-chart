@@ -34,7 +34,7 @@ export type CompensationType = 'Base + Bonus' | 'Base + Commission' | 'Base Only
 export type HiringPriority = 'Critical' | 'High' | 'Medium' | 'Low';
 export type RecruitingStatus = 'Not Started' | 'Sourcing' | 'Screening' | 'Interviewing' | 'Offer' | 'Closed';
 export type RecruiterType = 'Internal' | 'Retained Search' | 'Contingency' | 'Direct Sourcing';
-export type CandidateStage = 'Identified' | 'Screening' | 'First Interview' | 'Final Interview' | 'Offer Extended' | 'Offer Accepted' | 'Declined' | 'Withdrawn';
+export type CandidateStage = 'Identified' | 'Screening' | 'First Interview' | 'Final Interview' | 'Offer Extended' | 'Offer Accepted' | 'Placed' | 'Declined' | 'Withdrawn';
 
 export type ViewType = 'executive' | 'orgChart' | 'grid' | 'practiceArea' | 'revenue' | 'teamComposition' | 'supportBoard' | 'practiceScorecard' | 'gapAnalysis' | 'retentionMatrix' | 'businessLogic' | 'hiringConsole';
 export type ColorCoding = 'practiceArea' | 'performance' | 'band' | 'office';

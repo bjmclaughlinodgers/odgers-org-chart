@@ -19,6 +19,8 @@ export interface Candidate {
   addedDate: string;
   isFinalist: boolean;
   linkedinUrl?: string;
+  location?: string;
+  profilePic?: string;
 }
 
 export interface Person {

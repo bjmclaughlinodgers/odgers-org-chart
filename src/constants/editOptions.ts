@@ -104,6 +104,7 @@ export const CANDIDATE_STAGE_OPTIONS: CandidateStage[] = [
   'Final Interview',
   'Offer Extended',
   'Offer Accepted',
+  'Placed',
   'Declined',
   'Withdrawn',
 ];

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Star, Linkedin, GripVertical } from 'lucide-react';
+import { Star, Linkedin, GripVertical, MapPin } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
 import type { Candidate } from '../../types';
@@ -45,6 +45,12 @@ const STAGE_COLOR: Record<CandidateStage, { bg: string; border: string; header: 
     header: 'text-green-700 dark:text-green-400',
     dot: 'bg-green-500',
   },
+  Placed: {
+    bg: 'bg-emerald-50/60 dark:bg-emerald-900/15',
+    border: 'border-emerald-300/60 dark:border-emerald-700/40',
+    header: 'text-emerald-700 dark:text-emerald-400',
+    dot: 'bg-emerald-600',
+  },
   Declined: {
     bg: 'bg-red-50/50 dark:bg-red-900/10',
     border: 'border-red-200/60 dark:border-red-700/40',
@@ -60,6 +66,40 @@ const STAGE_COLOR: Record<CandidateStage, { bg: string; border: string; header: 
 };
 
 /* =========================================================
+   Avatar helper
+   ========================================================= */
+function KanbanAvatar({ candidate }: { candidate: Candidate }) {
+  const initials = candidate.name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
+
+  if (candidate.profilePic) {
+    return (
+      <img
+        src={candidate.profilePic}
+        alt={candidate.name}
+        className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-white dark:border-gray-700 shadow-sm"
+        onError={e => {
+          (e.target as HTMLImageElement).style.display = 'none';
+          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="w-7 h-7 rounded-full flex-shrink-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center border border-white dark:border-gray-600 shadow-sm">
+      <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 leading-none">
+        {initials}
+      </span>
+    </div>
+  );
+}
+
+/* =========================================================
    Props
    ========================================================= */
 interface CandidateKanbanProps {
@@ -67,6 +107,7 @@ interface CandidateKanbanProps {
   candidates: Candidate[];
   readonly?: boolean;
   onCandidateClick?: (candidate: Candidate) => void;
+  onPlaceCandidate?: (candidateId: string) => void;
 }
 
 /* =========================================================
@@ -77,6 +118,7 @@ export function CandidateKanban({
   candidates,
   readonly = false,
   onCandidateClick,
+  onPlaceCandidate,
 }: CandidateKanbanProps) {
   const updateCandidate = useOrgStore(s => s.updateCandidate);
 
@@ -124,14 +166,19 @@ export function CandidateKanban({
       if (candidateId && !readonly) {
         const candidate = candidates.find(c => c.id === candidateId);
         if (candidate && candidate.stage !== stage) {
-          updateCandidate(personId, candidateId, { stage });
+          // Placed stage triggers placement flow instead of regular update
+          if (stage === 'Placed' && onPlaceCandidate) {
+            onPlaceCandidate(candidateId);
+          } else {
+            updateCandidate(personId, candidateId, { stage });
+          }
         }
       }
       setDragId(null);
       setDropTarget(null);
       dragRef.current = null;
     },
-    [personId, candidates, updateCandidate, readonly],
+    [personId, candidates, updateCandidate, readonly, onPlaceCandidate],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -150,7 +197,7 @@ export function CandidateKanban({
         return (
           <div
             key={stage}
-            className={`flex-shrink-0 w-[180px] rounded-xl border transition-all duration-200 ${colors.bg} ${colors.border} ${
+            className={`flex-shrink-0 w-[210px] rounded-xl border transition-all duration-200 ${colors.bg} ${colors.border} ${
               isDropHere ? 'ring-2 ring-[#00857C] dark:ring-teal-500 scale-[1.01]' : ''
             }`}
             onDragOver={e => handleDragOver(e, stage)}
@@ -193,15 +240,19 @@ export function CandidateKanban({
                       dragId === candidate.id ? 'opacity-30 scale-95' : ''
                     }`}
                 >
-                  {/* Drag handle + name */}
-                  <div className="flex items-start gap-1">
+                  {/* Top row: drag handle + avatar + name/info + linkedin */}
+                  <div className="flex items-start gap-1.5">
                     {!readonly && (
                       <GripVertical
                         size={12}
-                        className="flex-shrink-0 mt-0.5 text-gray-300 dark:text-gray-600
+                        className="flex-shrink-0 mt-1 text-gray-300 dark:text-gray-600
                           opacity-0 group-hover/card:opacity-100 transition-opacity duration-200"
                       />
                     )}
+
+                    {/* Avatar */}
+                    <KanbanAvatar candidate={candidate} />
+
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1">
                         <span className="text-[11px] font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
@@ -237,8 +288,25 @@ export function CandidateKanban({
                     )}
                   </div>
 
+                  {/* Location */}
+                  {candidate.location && (
+                    <div className="flex items-center gap-0.5 mt-1 ml-[calc(12px+0.375rem+28px+0.375rem)]">
+                      <MapPin size={8} className="flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                      <p className="text-[9px] text-gray-400 dark:text-gray-500 truncate">
+                        {candidate.location}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Notes preview */}
+                  {candidate.notes && (
+                    <p className="text-[9px] text-gray-400 dark:text-gray-500 italic mt-1 truncate ml-[calc(12px+0.375rem+28px+0.375rem)]">
+                      {candidate.notes.length > 50 ? candidate.notes.slice(0, 50) + '…' : candidate.notes}
+                    </p>
+                  )}
+
                   {/* Source */}
-                  {candidate.source && (
+                  {candidate.source && !candidate.location && !candidate.notes && (
                     <p className="text-[9px] text-gray-400 dark:text-gray-600 mt-1 truncate">
                       via {candidate.source}
                     </p>

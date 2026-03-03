@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useOrgStore } from '../../stores/orgStore';
 import { useUIStore } from '../../stores/uiStore';
-import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil } from 'lucide-react';
+import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { PipelineFunnel } from './PipelineFunnel';
 import { CandidateTracker } from './CandidateTracker';
 import {
@@ -393,7 +393,7 @@ const fieldLabelCls = 'text-[11px] font-semibold text-gray-400 dark:text-gray-50
 // Expanded Row Panel — fully editable
 // ---------------------------------------------------------------------------
 
-function ExpandedPanel({ seat }: { seat: Person }) {
+function ExpandedPanel({ seat, onPlaceCandidate }: { seat: Person; onPlaceCandidate: (candidateId: string) => void }) {
   const updatePerson = useOrgStore(s => s.updatePerson);
 
   const update = useCallback(
@@ -410,8 +410,8 @@ function ExpandedPanel({ seat }: { seat: Person }) {
       className="animate-fade-in-up bg-gray-50/70 dark:bg-dark-surface-2/70 border-t border-gray-100 dark:border-dark-border px-6 py-5"
       onClick={e => e.stopPropagation()}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
-        {/* ---- Left: Editable Seat Details ---- */}
+      <div className="flex flex-col gap-6">
+        {/* ---- Seat Details (full width) ---- */}
         <div className="space-y-4">
           {/* Section label */}
           <div className="flex items-center gap-1.5 mb-0.5">
@@ -607,13 +607,17 @@ function ExpandedPanel({ seat }: { seat: Person }) {
           </div>
         </div>
 
-        {/* ---- Right: Candidate Tracker ---- */}
+        {/* ---- Candidates (full width) ---- */}
         <div>
           <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" />
             Candidates ({seat.candidates?.length ?? 0})
           </h4>
-          <CandidateTracker personId={seat.id} candidates={seat.candidates ?? []} />
+          <CandidateTracker
+            personId={seat.id}
+            candidates={seat.candidates ?? []}
+            onPlaceCandidate={onPlaceCandidate}
+          />
         </div>
       </div>
     </div>
@@ -646,6 +650,7 @@ function EmptyState() {
 
 export function HiringConsole() {
   const people = useOrgStore((s) => s.people);
+  const placeCandidate = useOrgStore((s) => s.placeCandidate);
   const selectPerson = useUIStore((s) => s.selectPerson);
 
   // Local state
@@ -656,9 +661,17 @@ export function HiringConsole() {
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showClosed, setShowClosed] = useState(false);
+
+  // Placement confirmation state
+  const [placementPending, setPlacementPending] = useState<{ seatId: string; candidateId: string; candidateName: string } | null>(null);
 
   // All open seats — subscribe to people array so candidates/fields updates trigger re-render
-  const allSeats = useMemo(() => people.filter(p => p.status === 'Open Seat'), [people]);
+  const allOpenSeats = useMemo(() => people.filter(p => p.status === 'Open Seat'), [people]);
+  const allSeats = useMemo(
+    () => showClosed ? allOpenSeats : allOpenSeats.filter(s => s.recruitingStatus !== 'Closed'),
+    [allOpenSeats, showClosed],
+  );
 
   // Unique practice areas
   const practiceAreas = useMemo(() => {
@@ -773,6 +786,21 @@ export function HiringConsole() {
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
+  // Placement handler — shows confirmation dialog
+  function handlePlaceRequest(seatId: string, candidateId: string) {
+    const seat = people.find(p => p.id === seatId);
+    const candidate = seat?.candidates?.find(c => c.id === candidateId);
+    if (!seat || !candidate) return;
+    setPlacementPending({ seatId, candidateId, candidateName: candidate.name });
+  }
+
+  function confirmPlacement() {
+    if (!placementPending) return;
+    placeCandidate(placementPending.seatId, placementPending.candidateId);
+    setPlacementPending(null);
+    setExpandedId(null);
+  }
+
   return (
     <div className="w-full max-w-[1600px] mx-auto px-6 py-6 space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -805,6 +833,26 @@ export function HiringConsole() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
+
+      {/* Show Closed toggle */}
+      <div className="flex items-center gap-2 -mt-2">
+        <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showClosed}
+            onChange={e => setShowClosed(e.target.checked)}
+            className="accent-[#00857C] w-3.5 h-3.5 rounded cursor-pointer"
+          />
+          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500">
+            Show closed seats
+          </span>
+        </label>
+        {!showClosed && allOpenSeats.filter(s => s.recruitingStatus === 'Closed').length > 0 && (
+          <span className="text-[10px] text-gray-300 dark:text-gray-600">
+            ({allOpenSeats.filter(s => s.recruitingStatus === 'Closed').length} hidden)
+          </span>
+        )}
+      </div>
 
       {/* 4. Open Seats Table */}
       {sortedSeats.length === 0 ? (
@@ -923,7 +971,12 @@ export function HiringConsole() {
                   </div>
 
                   {/* Expanded Panel */}
-                  {isExpanded && <ExpandedPanel seat={seat} />}
+                  {isExpanded && (
+                    <ExpandedPanel
+                      seat={seat}
+                      onPlaceCandidate={(candidateId) => handlePlaceRequest(seat.id, candidateId)}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -932,7 +985,10 @@ export function HiringConsole() {
           {/* Footer summary */}
           <div className="px-4 py-3 border-t border-gray-100 dark:border-dark-border bg-gray-50/50 dark:bg-dark-surface-2/50 flex items-center justify-between">
             <p className="text-[11px] text-gray-400 dark:text-gray-500">
-              Showing {sortedSeats.length} of {allSeats.length} open seats
+              Showing {sortedSeats.length} of {allOpenSeats.length} open seats
+              {!showClosed && allOpenSeats.filter(s => s.recruitingStatus === 'Closed').length > 0 && (
+                <span className="ml-1">(excluding closed)</span>
+              )}
             </p>
             {stageFilter && (
               <button
@@ -944,6 +1000,63 @@ export function HiringConsole() {
             )}
           </div>
         </section>
+      )}
+
+      {/* Placement Confirmation Dialog */}
+      {placementPending && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 dark:bg-black/60 animate-fade-in">
+          <div
+            className="bg-white dark:bg-[#1c2333] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700
+                        w-full max-w-md mx-4 p-6 animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  Place Candidate
+                </h3>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                  This action will close the seat and create a new team member
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-dark-surface-2 rounded-xl p-4 mb-4 space-y-1.5">
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-semibold">{placementPending.candidateName}</span> will be added as an active team member.
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                The seat's recruiting status will be set to <span className="font-semibold text-gray-600 dark:text-gray-300">Closed</span>.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 mb-4">
+              <AlertTriangle size={13} className="flex-shrink-0" />
+              <span>This action cannot be undone from here.</span>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPlacementPending(null)}
+                className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-4 py-2 rounded-lg
+                           hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmPlacement}
+                className="text-xs font-semibold text-white bg-green-600 dark:bg-green-600
+                           hover:bg-green-700 dark:hover:bg-green-500 px-4 py-2 rounded-lg
+                           transition-colors duration-200 shadow-sm"
+              >
+                Place & Close Seat
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

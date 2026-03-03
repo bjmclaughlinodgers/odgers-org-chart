@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink, List, Columns3 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink, List, Columns3, MapPin, StickyNote } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { v4 as uuidv4 } from 'uuid';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
@@ -17,6 +17,7 @@ const STAGE_BADGE: Record<CandidateStage, string> = {
   'Final Interview': 'badge-amber',
   'Offer Extended': 'badge-green',
   'Offer Accepted': 'badge-green',
+  Placed: 'badge-green',
   Declined: 'badge-red',
   Withdrawn: 'badge-red',
 };
@@ -61,6 +62,46 @@ interface CandidateTrackerProps {
   personId: string;
   candidates: Candidate[];
   readonly?: boolean;
+  onPlaceCandidate?: (candidateId: string) => void;
+}
+
+/* =========================================================
+   Avatar helper — headshot bubble or initials
+   ========================================================= */
+function CandidateAvatar({ candidate, size = 24 }: { candidate: Candidate; size?: number }) {
+  const initials = candidate.name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
+
+  if (candidate.profilePic) {
+    return (
+      <img
+        src={candidate.profilePic}
+        alt={candidate.name}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{ width: size, height: size }}
+        onError={e => {
+          // Fallback to initials on image error
+          (e.target as HTMLImageElement).style.display = 'none';
+          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="rounded-full flex-shrink-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 leading-none">
+        {initials}
+      </span>
+    </div>
+  );
 }
 
 /* =========================================================
@@ -70,6 +111,7 @@ export function CandidateTracker({
   personId,
   candidates,
   readonly = false,
+  onPlaceCandidate,
 }: CandidateTrackerProps) {
   const addCandidate = useOrgStore(s => s.addCandidate);
   const removeCandidate = useOrgStore(s => s.removeCandidate);
@@ -98,6 +140,12 @@ export function CandidateTracker({
   const [formStage, setFormStage] = useState<CandidateStage>('Identified');
   const [formSource, setFormSource] = useState('');
   const [formLinkedinUrl, setFormLinkedinUrl] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formProfilePic, setFormProfilePic] = useState('');
+
+  // Inline notes editing
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [editingNotesValue, setEditingNotesValue] = useState('');
 
   const stageDropdownRef = useRef<HTMLDivElement>(null);
   const linkedinInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +191,8 @@ export function CandidateTracker({
     setFormStage('Identified');
     setFormSource('');
     setFormLinkedinUrl('');
+    setFormLocation('');
+    setFormProfilePic('');
     setLinkedinInput('');
     setLookupResult(null);
     setLookupError(null);
@@ -175,6 +225,8 @@ export function CandidateTracker({
         setFormTitle(result.currentTitle);
         setFormCompany(result.currentCompany);
         setFormLinkedinUrl(result.linkedinUrl || url);
+        setFormLocation(result.location ?? '');
+        setFormProfilePic(result.profilePic ?? '');
         setFormSource('LinkedIn');
         setFormStage('Identified');
 
@@ -206,6 +258,8 @@ export function CandidateTracker({
       addedDate: new Date().toISOString(),
       isFinalist: false,
       linkedinUrl: formLinkedinUrl.trim() || undefined,
+      location: formLocation.trim() || undefined,
+      profilePic: formProfilePic.trim() || undefined,
     });
     resetForm();
   };
@@ -220,9 +274,20 @@ export function CandidateTracker({
   };
 
   const handleStageChange = (candidateId: string, stage: CandidateStage) => {
+    if (stage === 'Placed' && onPlaceCandidate) {
+      onPlaceCandidate(candidateId);
+      setEditingStageId(null);
+      return;
+    }
     updateCandidate(personId, candidateId, { stage });
     setEditingStageId(null);
   };
+
+  // Save notes on blur
+  const handleNotesSave = useCallback((candidateId: string, notes: string) => {
+    updateCandidate(personId, candidateId, { notes: notes.trim() || undefined });
+    setEditingNotesId(null);
+  }, [personId, updateCandidate]);
 
   const toggleFinalist = (candidateId: string, current: boolean) => {
     updateCandidate(personId, candidateId, { isFinalist: !current });
@@ -340,7 +405,7 @@ export function CandidateTracker({
 
       {/* ---- Kanban Board view ---- */}
       {viewMode === 'board' && candidates.length > 0 && (
-        <CandidateKanban personId={personId} candidates={candidates} readonly={readonly} />
+        <CandidateKanban personId={personId} candidates={candidates} readonly={readonly} onPlaceCandidate={onPlaceCandidate} />
       )}
 
       {/* ---- List view: Candidate rows ---- */}
@@ -349,135 +414,204 @@ export function CandidateTracker({
         {candidates.map(candidate => (
           <div
             key={candidate.id}
-            className="group/row flex items-center gap-2 py-1.5 px-1 -mx-1 rounded-md
+            className="group/row py-2 px-1 -mx-1 rounded-md
                        hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors duration-200"
-            style={{ minHeight: 32 }}
           >
-            {/* Finalist star */}
-            {!readonly && (
-              <button
-                onClick={() => toggleFinalist(candidate.id, candidate.isFinalist)}
-                className="flex-shrink-0 p-0.5 transition-colors duration-200"
-                title={candidate.isFinalist ? 'Remove finalist' : 'Mark as finalist'}
-              >
-                <Star
-                  size={13}
-                  className={
-                    candidate.isFinalist
-                      ? 'text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400'
-                      : 'text-gray-300 dark:text-gray-600 hover:text-amber-400 dark:hover:text-amber-500'
-                  }
-                />
-              </button>
-            )}
-            {readonly && candidate.isFinalist && (
-              <Star size={13} className="flex-shrink-0 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
-            )}
+            <div className="flex items-center gap-2" style={{ minHeight: 32 }}>
+              {/* Finalist star */}
+              {!readonly && (
+                <button
+                  onClick={() => toggleFinalist(candidate.id, candidate.isFinalist)}
+                  className="flex-shrink-0 p-0.5 transition-colors duration-200"
+                  title={candidate.isFinalist ? 'Remove finalist' : 'Mark as finalist'}
+                >
+                  <Star
+                    size={13}
+                    className={
+                      candidate.isFinalist
+                        ? 'text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400'
+                        : 'text-gray-300 dark:text-gray-600 hover:text-amber-400 dark:hover:text-amber-500'
+                    }
+                  />
+                </button>
+              )}
+              {readonly && candidate.isFinalist && (
+                <Star size={13} className="flex-shrink-0 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
+              )}
 
-            {/* Name & title */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
-                  {candidate.name}
+              {/* Headshot avatar */}
+              <CandidateAvatar candidate={candidate} size={24} />
+
+              {/* Name, title, location */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
+                    {candidate.name}
+                  </span>
+                  {candidate.linkedinUrl && (
+                    <a
+                      href={candidate.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 text-[#0A66C2] dark:text-blue-400 hover:text-[#084d94] dark:hover:text-blue-300
+                                 transition-colors duration-200"
+                      title="View LinkedIn profile"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Linkedin size={11} />
+                    </a>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {(candidate.currentTitle || candidate.currentCompany) && (
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate leading-tight">
+                      {candidate.currentTitle}
+                      {candidate.currentTitle && candidate.currentCompany && ' @ '}
+                      {candidate.currentCompany}
+                    </span>
+                  )}
+                  {candidate.location && (
+                    <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                      <MapPin size={9} className="flex-shrink-0" />
+                      {candidate.location}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Source */}
+              {candidate.source && (
+                <span className="hidden sm:inline flex-shrink-0 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                  {candidate.source}
                 </span>
-                {candidate.linkedinUrl && (
-                  <a
-                    href={candidate.linkedinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 text-[#0A66C2] dark:text-blue-400 hover:text-[#084d94] dark:hover:text-blue-300
-                               transition-colors duration-200"
-                    title="View LinkedIn profile"
-                    onClick={e => e.stopPropagation()}
+              )}
+
+              {/* Stage badge (with dropdown) */}
+              <div className="relative flex-shrink-0" ref={editingStageId === candidate.id ? stageDropdownRef : undefined}>
+                <button
+                  onClick={() => {
+                    if (readonly) return;
+                    setEditingStageId(editingStageId === candidate.id ? null : candidate.id);
+                  }}
+                  disabled={readonly}
+                  className={`badge ${STAGE_BADGE[candidate.stage]} flex items-center gap-0.5 transition-opacity duration-200
+                             ${readonly ? '' : 'cursor-pointer hover:opacity-80'}`}
+                >
+                  <span className="truncate max-w-[80px]">{candidate.stage}</span>
+                  {!readonly && <ChevronDown size={10} className="flex-shrink-0 opacity-50" />}
+                </button>
+
+                {/* Stage dropdown */}
+                {editingStageId === candidate.id && (
+                  <div
+                    className="absolute right-0 top-full mt-1 z-50 w-40 py-1
+                               bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-gray-700
+                               rounded-lg shadow-lg animate-scale-in"
                   >
-                    <Linkedin size={11} />
-                  </a>
+                    {CANDIDATE_STAGE_OPTIONS.map(stage => (
+                      <button
+                        key={stage}
+                        onClick={() => handleStageChange(candidate.id, stage)}
+                        className={`w-full text-left text-[11px] px-3 py-1.5 transition-colors duration-150
+                                   hover:bg-gray-50 dark:hover:bg-white/[0.05]
+                                   ${candidate.stage === stage
+                                     ? 'font-semibold text-[#00857C] dark:text-teal-400'
+                                     : 'text-gray-700 dark:text-gray-300'
+                                   }
+                                   ${stage === 'Placed' ? 'border-t border-gray-100 dark:border-gray-700/50 mt-0.5 pt-2' : ''}`}
+                      >
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
+                          STAGE_BADGE[stage].replace('badge-', 'bg-').replace('gray', 'gray-400')
+                            .replace('teal', '[#00857C]').replace('amber', 'amber-500')
+                            .replace('green', 'green-500').replace('red', 'red-500')
+                        }`} />
+                        {stage}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-              {(candidate.currentTitle || candidate.currentCompany) && (
-                <div className="text-[11px] text-gray-400 dark:text-gray-500 truncate leading-tight">
-                  {candidate.currentTitle}
-                  {candidate.currentTitle && candidate.currentCompany && ' @ '}
-                  {candidate.currentCompany}
-                </div>
-              )}
-            </div>
 
-            {/* Source */}
-            {candidate.source && (
-              <span className="hidden sm:inline flex-shrink-0 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                {candidate.source}
-              </span>
-            )}
-
-            {/* Stage badge (with dropdown) */}
-            <div className="relative flex-shrink-0" ref={editingStageId === candidate.id ? stageDropdownRef : undefined}>
-              <button
-                onClick={() => {
-                  if (readonly) return;
-                  setEditingStageId(editingStageId === candidate.id ? null : candidate.id);
-                }}
-                disabled={readonly}
-                className={`badge ${STAGE_BADGE[candidate.stage]} flex items-center gap-0.5 transition-opacity duration-200
-                           ${readonly ? '' : 'cursor-pointer hover:opacity-80'}`}
-              >
-                <span className="truncate max-w-[80px]">{candidate.stage}</span>
-                {!readonly && <ChevronDown size={10} className="flex-shrink-0 opacity-50" />}
-              </button>
-
-              {/* Stage dropdown */}
-              {editingStageId === candidate.id && (
-                <div
-                  className="absolute right-0 top-full mt-1 z-50 w-40 py-1
-                             bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-gray-700
-                             rounded-lg shadow-lg animate-scale-in"
+              {/* Notes toggle */}
+              {!readonly && (
+                <button
+                  onClick={() => {
+                    if (editingNotesId === candidate.id) {
+                      handleNotesSave(candidate.id, editingNotesValue);
+                    } else {
+                      setEditingNotesId(candidate.id);
+                      setEditingNotesValue(candidate.notes ?? '');
+                    }
+                  }}
+                  className={`flex-shrink-0 p-0.5 rounded transition-all duration-200
+                    ${candidate.notes
+                      ? 'text-amber-500 dark:text-amber-400'
+                      : 'text-gray-300 dark:text-gray-600 opacity-0 group-hover/row:opacity-100 hover:text-gray-500 dark:hover:text-gray-400'
+                    }`}
+                  title={candidate.notes ? 'Edit notes' : 'Add notes'}
                 >
-                  {CANDIDATE_STAGE_OPTIONS.map(stage => (
-                    <button
-                      key={stage}
-                      onClick={() => handleStageChange(candidate.id, stage)}
-                      className={`w-full text-left text-[11px] px-3 py-1.5 transition-colors duration-150
-                                 hover:bg-gray-50 dark:hover:bg-white/[0.05]
-                                 ${candidate.stage === stage
-                                   ? 'font-semibold text-[#00857C] dark:text-teal-400'
-                                   : 'text-gray-700 dark:text-gray-300'
-                                 }`}
-                    >
-                      <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
-                        STAGE_BADGE[stage].replace('badge-', 'bg-').replace('gray', 'gray-400')
-                          .replace('teal', '[#00857C]').replace('amber', 'amber-500')
-                          .replace('green', 'green-500').replace('red', 'red-500')
-                      }`} />
-                      {stage}
-                    </button>
-                  ))}
-                </div>
+                  <StickyNote size={12} />
+                </button>
+              )}
+
+              {/* Remove button */}
+              {!readonly && (
+                <button
+                  onClick={() => handleRemoveClick(candidate.id)}
+                  onBlur={() => {
+                    if (confirmRemoveId === candidate.id) {
+                      setTimeout(() => setConfirmRemoveId(null), 150);
+                    }
+                  }}
+                  className={`flex-shrink-0 flex items-center gap-0.5 p-0.5 rounded transition-all duration-200
+                             ${confirmRemoveId === candidate.id
+                               ? 'text-red-600 dark:text-red-400'
+                               : 'text-gray-300 dark:text-gray-600 opacity-0 group-hover/row:opacity-100 hover:text-red-500 dark:hover:text-red-400'
+                             }`}
+                  title={confirmRemoveId === candidate.id ? 'Click again to confirm' : 'Remove candidate'}
+                >
+                  {confirmRemoveId === candidate.id ? (
+                    <span className="text-[10px] font-semibold whitespace-nowrap">Remove?</span>
+                  ) : (
+                    <X size={13} />
+                  )}
+                </button>
               )}
             </div>
 
-            {/* Remove button */}
-            {!readonly && (
-              <button
-                onClick={() => handleRemoveClick(candidate.id)}
-                onBlur={() => {
-                  if (confirmRemoveId === candidate.id) {
-                    setTimeout(() => setConfirmRemoveId(null), 150);
+            {/* Inline notes display / editor */}
+            {editingNotesId === candidate.id ? (
+              <div className="mt-1.5 ml-[52px]">
+                <textarea
+                  autoFocus
+                  rows={2}
+                  className={`w-full ${inputCls} resize-y text-[11px]`}
+                  placeholder="Add notes about this candidate..."
+                  value={editingNotesValue}
+                  onChange={e => setEditingNotesValue(e.target.value)}
+                  onBlur={() => handleNotesSave(candidate.id, editingNotesValue)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') {
+                      setEditingNotesId(null);
+                    }
+                  }}
+                />
+              </div>
+            ) : candidate.notes ? (
+              <p
+                className="mt-0.5 ml-[52px] text-[10px] text-gray-400 dark:text-gray-500 italic truncate cursor-pointer
+                           hover:text-gray-500 dark:hover:text-gray-400 transition-colors duration-200"
+                onClick={() => {
+                  if (!readonly) {
+                    setEditingNotesId(candidate.id);
+                    setEditingNotesValue(candidate.notes ?? '');
                   }
                 }}
-                className={`flex-shrink-0 flex items-center gap-0.5 p-0.5 rounded transition-all duration-200
-                           ${confirmRemoveId === candidate.id
-                             ? 'text-red-600 dark:text-red-400'
-                             : 'text-gray-300 dark:text-gray-600 opacity-0 group-hover/row:opacity-100 hover:text-red-500 dark:hover:text-red-400'
-                           }`}
-                title={confirmRemoveId === candidate.id ? 'Click again to confirm' : 'Remove candidate'}
+                title={candidate.notes}
               >
-                {confirmRemoveId === candidate.id ? (
-                  <span className="text-[10px] font-semibold whitespace-nowrap">Remove?</span>
-                ) : (
-                  <X size={13} />
-                )}
-              </button>
-            )}
+                {candidate.notes}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>
@@ -518,6 +652,8 @@ export function CandidateTracker({
                             setFormTitle(result.currentTitle);
                             setFormCompany(result.currentCompany);
                             setFormLinkedinUrl(result.linkedinUrl || pasted.trim());
+                            setFormLocation(result.location ?? '');
+                            setFormProfilePic(result.profilePic ?? '');
                             setFormSource('LinkedIn');
                             setFormStage('Identified');
                             setLookupLoading(false);
