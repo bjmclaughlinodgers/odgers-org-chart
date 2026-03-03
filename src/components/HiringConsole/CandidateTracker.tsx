@@ -57,10 +57,12 @@ async function lookupLinkedIn(url: string): Promise<LinkedInResult> {
     throw new Error(`Server returned invalid response (${res.status})`);
   }
 
+  // 202 = RocketReach is still processing; retryable flag also triggers retry
+  if (res.status === 202 || data.retryable) {
+    throw new Error('RETRYABLE: ' + (String(data.error ?? 'Still processing')));
+  }
+
   if (!res.ok) {
-    if (res.status === 202 || data.retryable) {
-      throw new Error('RETRYABLE: ' + (String(data.error ?? 'Still processing')));
-    }
     throw new Error(String(data.error ?? `Lookup failed (${res.status})`));
   }
 
@@ -222,9 +224,9 @@ export function CandidateTracker({
     setAddMode(null);
   };
 
-  const handleLinkedInLookup = async () => {
+  const handleLinkedInLookup = async (urlOverride?: string | React.MouseEvent) => {
     try {
-      const url = linkedinInput.trim();
+      const url = (typeof urlOverride === 'string' ? urlOverride : linkedinInput).trim();
       if (!url) return;
 
       if (!url.includes('linkedin.com/in/')) {
@@ -666,46 +668,11 @@ export function CandidateTracker({
                   }}
                   onPaste={e => {
                     try {
-                      // Auto-trigger lookup on paste
                       const pasted = e.clipboardData?.getData('text') ?? '';
                       if (pasted.includes('linkedin.com/in/')) {
                         setLinkedinInput(pasted);
-                        // Slight delay so state updates
-                        setTimeout(() => {
-                          try {
-                            setLookupLoading(true);
-                            setLookupError(null);
-                            lookupLinkedIn(pasted.trim())
-                              .then(result => {
-                                try {
-                                  setLookupResult(result);
-                                  setFormName(result.name);
-                                  setFormTitle(result.currentTitle);
-                                  setFormCompany(result.currentCompany);
-                                  setFormLinkedinUrl(result.linkedinUrl || pasted.trim());
-                                  setFormLocation(result.location ?? '');
-                                  setFormProfilePic(result.profilePic ?? '');
-                                  setFormSource('LinkedIn');
-                                  setFormStage('Identified');
-                                  setLookupLoading(false);
-                                } catch (stateErr) {
-                                  console.error('[LinkedIn Paste] Error setting result state:', stateErr);
-                                  setLookupError('Error processing lookup result');
-                                  setLookupLoading(false);
-                                }
-                              })
-                              .catch(err => {
-                                const msg = err instanceof Error ? err.message : String(err ?? 'Unknown error');
-                                console.error('[LinkedIn Paste] Lookup error:', msg);
-                                setLookupError(msg.replace('RETRYABLE: ', ''));
-                                setLookupLoading(false);
-                              });
-                          } catch (outerErr) {
-                            console.error('[LinkedIn Paste] Outer error:', outerErr);
-                            setLookupError('Unexpected error starting lookup');
-                            setLookupLoading(false);
-                          }
-                        }, 50);
+                        // Delegate to the same retry-aware handler used by the button
+                        handleLinkedInLookup(pasted);
                         e.preventDefault();
                       }
                     } catch (pasteErr) {
