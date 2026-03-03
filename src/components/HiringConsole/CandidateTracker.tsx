@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink } from 'lucide-react';
+import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink, List, Columns3 } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { v4 as uuidv4 } from 'uuid';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
+import { CandidateKanban } from './CandidateKanban';
 import type { Candidate } from '../../types';
 import type { CandidateStage } from '../../types/enums';
 
@@ -78,6 +79,8 @@ export function CandidateTracker({
      Local state
      ------------------------------------------------------- */
   type AddMode = null | 'linkedin' | 'manual';
+  type ViewMode = 'list' | 'board';
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [addMode, setAddMode] = useState<AddMode>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [editingStageId, setEditingStageId] = useState<string | null>(null);
@@ -276,7 +279,7 @@ export function CandidateTracker({
     <div className="space-y-0">
       {/* ---- Header ---- */}
       <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
             Candidates ({candidates.length})
           </span>
@@ -284,6 +287,33 @@ export function CandidateTracker({
             <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
               {finalistCount} finalist{finalistCount !== 1 ? 's' : ''}
             </span>
+          )}
+          {/* View toggle */}
+          {candidates.length > 0 && (
+            <div className="flex items-center rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden ml-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1 transition-colors duration-150 ${
+                  viewMode === 'list'
+                    ? 'bg-[#00857C] text-white'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]'
+                }`}
+                title="List view"
+              >
+                <List size={12} />
+              </button>
+              <button
+                onClick={() => setViewMode('board')}
+                className={`p-1 transition-colors duration-150 ${
+                  viewMode === 'board'
+                    ? 'bg-[#00857C] text-white'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.03]'
+                }`}
+                title="Board view"
+              >
+                <Columns3 size={12} />
+              </button>
+            </div>
           )}
         </div>
         {!readonly && !addMode && (
@@ -308,7 +338,13 @@ export function CandidateTracker({
         )}
       </div>
 
-      {/* ---- Candidate rows ---- */}
+      {/* ---- Kanban Board view ---- */}
+      {viewMode === 'board' && candidates.length > 0 && (
+        <CandidateKanban personId={personId} candidates={candidates} readonly={readonly} />
+      )}
+
+      {/* ---- List view: Candidate rows ---- */}
+      {viewMode === 'list' && (
       <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
         {candidates.map(candidate => (
           <div
@@ -445,6 +481,7 @@ export function CandidateTracker({
           </div>
         ))}
       </div>
+      )}
 
       {/* ---- LinkedIn Lookup Form ---- */}
       {addMode === 'linkedin' && !lookupResult && (
