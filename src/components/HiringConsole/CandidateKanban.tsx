@@ -69,23 +69,22 @@ const STAGE_COLOR: Record<CandidateStage, { bg: string; border: string; header: 
    Avatar helper
    ========================================================= */
 function KanbanAvatar({ candidate }: { candidate: Candidate }) {
-  const initials = candidate.name
+  const [imgError, setImgError] = useState(false);
+  const initials = (candidate.name ?? '')
     .split(/\s+/)
+    .filter(Boolean)
     .slice(0, 2)
-    .map(n => n[0])
+    .map(n => n[0] ?? '')
     .join('')
-    .toUpperCase();
+    .toUpperCase() || '?';
 
-  if (candidate.profilePic) {
+  if (candidate.profilePic && !imgError) {
     return (
       <img
         src={candidate.profilePic}
         alt={candidate.name}
         className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-white dark:border-gray-700 shadow-sm"
-        onError={e => {
-          (e.target as HTMLImageElement).style.display = 'none';
-          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-        }}
+        onError={() => setImgError(true)}
       />
     );
   }
