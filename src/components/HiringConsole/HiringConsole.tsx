@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useOrgStore } from '../../stores/orgStore';
 import { useUIStore } from '../../stores/uiStore';
-import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Briefcase, ChevronDown, ChevronRight, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Pencil, CheckCircle2, AlertTriangle, Mail } from 'lucide-react';
 import { PipelineFunnel } from './PipelineFunnel';
 import { CandidateTracker } from './CandidateTracker';
+import { SeatDetailView } from './SeatDetailView';
+import { EmailIngestPanel } from './EmailIngestPanel';
 import { ErrorBoundary } from '../ErrorBoundary';
 import {
   HIRING_PRIORITY_OPTIONS,
@@ -665,6 +667,8 @@ export function HiringConsole() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showClosed, setShowClosed] = useState(false);
+  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
+  const [showEmailIngest, setShowEmailIngest] = useState(false);
 
   // Placement confirmation state
   const [placementPending, setPlacementPending] = useState<{ seatId: string; candidateId: string; candidateName: string } | null>(null);
@@ -802,19 +806,104 @@ export function HiringConsole() {
     placeCandidate(placementPending.seatId, placementPending.candidateId);
     setPlacementPending(null);
     setExpandedId(null);
+    setSelectedSeatId(null);
+  }
+
+  // ── Seat Detail View (full-page drill-down) ──
+  const selectedSeat = selectedSeatId ? people.find(p => p.id === selectedSeatId) : null;
+  if (selectedSeat) {
+    return (
+      <ErrorBoundary fallbackLabel="Seat Detail View">
+        <SeatDetailView
+          seat={selectedSeat}
+          onBack={() => setSelectedSeatId(null)}
+          onPlaceCandidate={(candidateId) => handlePlaceRequest(selectedSeat.id, candidateId)}
+        />
+        {/* Placement Confirmation Dialog (shared) */}
+        {placementPending && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 dark:bg-black/60 animate-fade-in">
+            <div
+              className="bg-white dark:bg-[#1c2333] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700
+                          w-full max-w-md mx-4 p-6 animate-scale-in"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    Place Candidate
+                  </h3>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    This action will close the seat and create a new team member
+                  </p>
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-dark-surface-2 rounded-xl p-4 mb-4 space-y-1.5">
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  <span className="font-semibold">{placementPending.candidateName}</span> will be added as an active team member.
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  The seat's recruiting status will be set to <span className="font-semibold text-gray-600 dark:text-gray-300">Closed</span>.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 mb-4">
+                <AlertTriangle size={13} className="flex-shrink-0" />
+                <span>This action cannot be undone from here.</span>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setPlacementPending(null)}
+                  className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-4 py-2 rounded-lg
+                             hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmPlacement}
+                  className="text-xs font-semibold text-white bg-green-600 dark:bg-green-600
+                             hover:bg-green-700 dark:hover:bg-green-500 px-4 py-2 rounded-lg
+                             transition-colors duration-200 shadow-sm"
+                >
+                  Place & Close Seat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </ErrorBoundary>
+    );
   }
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-6 py-6 space-y-6 animate-fade-in">
       {/* Page Header */}
-      <header className="animate-fade-in-up">
-        <h1 className="text-2xl font-extrabold tracking-tight text-odgers-navy dark:text-dark-text">
-          Hiring Console
-        </h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-          Recruiting pipeline, open seats, and candidate tracking
-        </p>
+      <header className="flex items-start justify-between animate-fade-in-up">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-odgers-navy dark:text-dark-text">
+            Hiring Console
+          </h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            Recruiting pipeline, open seats, and candidate tracking
+          </p>
+        </div>
+        <button
+          onClick={() => setShowEmailIngest(true)}
+          className="flex items-center gap-2 text-xs font-semibold text-[#00857C] dark:text-teal-400
+                     px-3.5 py-2 rounded-xl border border-[#00857C]/20 dark:border-teal-500/20
+                     hover:bg-[#00857C]/5 dark:hover:bg-teal-500/5 transition-colors duration-200"
+          title="Parse email for candidate data"
+        >
+          <Mail size={14} />
+          Paste Email
+        </button>
       </header>
+
+      {/* Email Ingest Modal */}
+      {showEmailIngest && (
+        <EmailIngestPanel onClose={() => setShowEmailIngest(false)} />
+      )}
 
       {/* 1. KPI Strip */}
       <KPIStrip seats={allSeats} />
@@ -905,7 +994,7 @@ export function HiringConsole() {
                           : ''
                       }
                       hover:bg-[#00857C]/[0.04] dark:hover:bg-teal-500/[0.05]`}
-                    onClick={() => handleToggleExpand(seat.id)}
+                    onClick={() => setSelectedSeatId(seat.id)}
                     role="row"
                     aria-expanded={isExpanded}
                   >

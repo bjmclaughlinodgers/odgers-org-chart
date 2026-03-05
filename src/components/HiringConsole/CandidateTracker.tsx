@@ -4,6 +4,7 @@ import { useOrgStore } from '../../stores/orgStore';
 import { v4 as uuidv4 } from 'uuid';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
 import { CandidateKanban } from './CandidateKanban';
+import { CandidateDetailPanel } from './CandidateDetailPanel';
 import type { Candidate } from '../../types';
 import type { CandidateStage } from '../../types/enums';
 
@@ -170,6 +171,9 @@ export function CandidateTracker({
   // Inline notes editing
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [editingNotesValue, setEditingNotesValue] = useState('');
+
+  // Candidate detail panel
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
 
   const stageDropdownRef = useRef<HTMLDivElement>(null);
   const linkedinInputRef = useRef<HTMLInputElement>(null);
@@ -435,7 +439,13 @@ export function CandidateTracker({
 
       {/* ---- Kanban Board view ---- */}
       {viewMode === 'board' && candidates.length > 0 && (
-        <CandidateKanban personId={personId} candidates={candidates} readonly={readonly} onPlaceCandidate={onPlaceCandidate} />
+        <CandidateKanban
+          personId={personId}
+          candidates={candidates}
+          readonly={readonly}
+          onPlaceCandidate={onPlaceCandidate}
+          onCandidateClick={c => setSelectedCandidateId(c.id)}
+        />
       )}
 
       {/* ---- List view: Candidate rows ---- */}
@@ -475,9 +485,14 @@ export function CandidateTracker({
               {/* Name, title, location */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedCandidateId(candidate.id); }}
+                    className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight
+                               hover:text-[#00857C] dark:hover:text-teal-400 hover:underline underline-offset-2
+                               transition-colors duration-200 text-left cursor-pointer"
+                  >
                     {candidate.name}
-                  </span>
+                  </button>
                   {candidate.linkedinUrl && (
                     <a
                       href={candidate.linkedinUrl}
@@ -853,6 +868,20 @@ export function CandidateTracker({
           </div>
         </div>
       )}
+
+      {/* ---- Candidate Detail Panel (slide-over) ---- */}
+      {selectedCandidateId && (() => {
+        const selected = candidates.find(c => c.id === selectedCandidateId);
+        if (!selected) return null;
+        return (
+          <CandidateDetailPanel
+            candidate={selected}
+            personId={personId}
+            onClose={() => setSelectedCandidateId(null)}
+            onPlaceCandidate={onPlaceCandidate}
+          />
+        );
+      })()}
     </div>
   );
 }
