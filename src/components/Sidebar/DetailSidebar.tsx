@@ -20,7 +20,7 @@ import { TagEditorSection } from './TagEditorSection';
 import { ReportingLineEditor } from './ReportingLineEditor';
 import {
   BAND_OPTIONS,
-  PRACTICE_OPTIONS,
+  getDynamicPracticeOptions,
   PERFORMANCE_OPTIONS,
   RISK_OPTIONS,
   OFFICE_OPTIONS,
@@ -591,7 +591,7 @@ export function DetailSidebar() {
             <div className="flex items-center flex-wrap justify-center gap-1.5 mt-3">
               <BadgeDropdown
                 value={person.practiceArea}
-                options={PRACTICE_OPTIONS as string[]}
+                options={getDynamicPracticeOptions()}
                 onSave={val => updatePerson(person.id, { practiceArea: val as Person['practiceArea'] })}
                 className="badge text-[11px] font-semibold px-2.5 py-0.5 rounded-full text-white cursor-pointer hover:opacity-90 transition-opacity"
                 style={{ backgroundColor: practiceColor }}
@@ -812,7 +812,7 @@ export function DetailSidebar() {
                 value={person.practiceArea}
                 onSave={handleUpdate('practiceArea')}
                 type="select"
-                options={PRACTICE_OPTIONS as string[]}
+                options={getDynamicPracticeOptions()}
                 icon={<Briefcase size={12} />}
               />
               <EditableField

@@ -7,10 +7,10 @@ import {
   HIRING_PRIORITY_OPTIONS,
   RECRUITING_STATUS_OPTIONS,
   RECRUITER_TYPE_OPTIONS,
-  getDynamicPracticeOptions,
   BAND_OPTIONS,
   OFFICE_OPTIONS,
 } from '../../constants/editOptions';
+import { PracticeSelect } from '../shared/PracticeSelect';
 import type { Person } from '../../types';
 
 /* =========================================================================
@@ -81,7 +81,6 @@ export function SeatDetailView({ seat, onBack, onPlaceCandidate }: SeatDetailVie
     [seat.id, updatePerson],
   );
 
-  const practiceOptions = getDynamicPracticeOptions();
   const priority = seat.hiringPriority ?? 'Low';
   const status = seat.recruitingStatus ?? 'Not Started';
 
@@ -140,15 +139,11 @@ export function SeatDetailView({ seat, onBack, onPlaceCandidate }: SeatDetailVie
           </div>
           <div>
             <label className={fieldLabelCls}>Practice</label>
-            <select
-              className={fieldInputCls}
+            <PracticeSelect
               value={seat.practiceArea}
-              onChange={e => update('practiceArea', e.target.value)}
-            >
-              {practiceOptions.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              onChange={val => update('practiceArea', val)}
+              className={fieldInputCls}
+            />
           </div>
           <div>
             <label className={fieldLabelCls}>Band</label>

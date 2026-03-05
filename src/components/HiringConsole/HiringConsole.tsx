@@ -14,6 +14,7 @@ import {
   getDynamicPracticeOptions,
   BAND_OPTIONS,
 } from '../../constants/editOptions';
+import { PracticeSelect } from '../shared/PracticeSelect';
 import type { Person } from '../../types';
 import type { RecruitingStatus, HiringPriority } from '../../types/enums';
 
@@ -437,15 +438,11 @@ function ExpandedPanel({ seat, onPlaceCandidate }: { seat: Person; onPlaceCandid
             </div>
             <div>
               <label className={fieldLabelCls}>Practice</label>
-              <select
-                className={fieldInputCls}
+              <PracticeSelect
                 value={seat.practiceArea}
-                onChange={e => update('practiceArea', e.target.value)}
-              >
-                {practiceOptions.map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onChange={val => update('practiceArea', val)}
+                className={fieldInputCls}
+              />
             </div>
             <div>
               <label className={fieldLabelCls}>Band</label>

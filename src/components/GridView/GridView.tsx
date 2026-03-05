@@ -9,7 +9,7 @@ import { computeTenure } from '../../utils/tenure';
 import { isActivePerson } from '../../utils/personFilters';
 import { formatCurrency } from '../../utils/export';
 import {
-  PRACTICE_OPTIONS,
+  getDynamicPracticeOptions,
   BAND_OPTIONS,
   OFFICE_OPTIONS,
   PERFORMANCE_OPTIONS,
@@ -386,7 +386,7 @@ export function GridView() {
                 <td className="px-1 py-1">
                   <select value={columnFilters.practiceArea || ''} onChange={e => setColumnFilters(f => ({...f, practiceArea: e.target.value}))} className="w-full text-[10px] bg-white/80 dark:bg-[#1a2332]/80 border border-gray-200/80 dark:border-gray-700/60 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 dark:focus:ring-teal-500 dark:text-gray-300 transition-colors">
                     <option value="">All</option>
-                    {PRACTICE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    {getDynamicPracticeOptions().map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </td>
                 <td className="px-1 py-1">
@@ -518,7 +518,7 @@ export function GridView() {
                           value={person.practiceArea}
                           onSave={(val) => handleSave(person.id, 'practiceArea', val)}
                           type="select"
-                          options={PRACTICE_OPTIONS as string[]}
+                          options={getDynamicPracticeOptions() as string[]}
                         />
                       </div>
                     </td>

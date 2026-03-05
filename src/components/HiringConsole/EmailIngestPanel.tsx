@@ -1,6 +1,12 @@
-import { useState, useCallback } from 'react';
-import { X, Mail, Loader2, CheckCircle2, AlertCircle, UserPlus, RefreshCw, Linkedin, MapPin, Building2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import {
+  X, Mail, Loader2, CheckCircle2, AlertCircle, UserPlus, RefreshCw,
+  Linkedin, MapPin, Building2, ChevronDown, ChevronRight, AlertTriangle,
+  Plus, ArrowRightLeft,
+} from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
+import { getDynamicPracticeOptions, BAND_OPTIONS } from '../../constants/editOptions';
+import { PracticeSelect } from '../shared/PracticeSelect';
 import { v4 as uuidv4 } from 'uuid';
 import type { Person, Candidate } from '../../types';
 
@@ -32,6 +38,31 @@ interface ParseResult {
 }
 
 /* =========================================================
+   Per-candidate assignment state — extends ParsedCandidate
+   with a user-chosen seat assignment
+   ========================================================= */
+interface CandidateAssignment extends ParsedCandidate {
+  /** null = unassigned, '__new__' = create new seat, otherwise a seat person id */
+  assignedSeatId: string | null;
+  /** Duplicate info — if this candidate exists elsewhere */
+  duplicateInfo: {
+    seatId: string;
+    seatTitle: string;
+    candidateId: string;
+    candidateName: string;
+  } | null;
+}
+
+/* =========================================================
+   New seat creation state
+   ========================================================= */
+interface NewSeatForm {
+  title: string;
+  practiceArea: string;
+  band: string;
+}
+
+/* =========================================================
    Props
    ========================================================= */
 interface EmailIngestPanelProps {
@@ -55,24 +86,88 @@ function ConfidenceBadge({ level }: { level: 'high' | 'medium' | 'low' }) {
 }
 
 /* =========================================================
+   Duplicate warning badge
+   ========================================================= */
+function DuplicateWarning({ info }: { info: CandidateAssignment['duplicateInfo'] }) {
+  if (!info) return null;
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/15
+                    border border-amber-200/60 dark:border-amber-700/40">
+      <AlertTriangle size={12} className="text-amber-500 dark:text-amber-400 flex-shrink-0" />
+      <span className="text-[11px] text-amber-700 dark:text-amber-300">
+        Already exists in <span className="font-semibold">{info.seatTitle}</span> — will update instead of creating duplicate
+      </span>
+    </div>
+  );
+}
+
+/* =========================================================
    EmailIngestPanel — modal dialog for paste-and-parse
    ========================================================= */
 export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
   const people = useOrgStore(s => s.people);
   const addCandidate = useOrgStore(s => s.addCandidate);
   const updateCandidate = useOrgStore(s => s.updateCandidate);
+  const addPerson = useOrgStore(s => s.addPerson);
 
   // State
   const [emailText, setEmailText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
+  const [assignments, setAssignments] = useState<CandidateAssignment[]>([]);
   const [applied, setApplied] = useState(false);
   const [applySummary, setApplySummary] = useState<string | null>(null);
   const [showRawEmail, setShowRawEmail] = useState(false);
+  const [showNewSeatForm, setShowNewSeatForm] = useState(false);
+  const [newSeatForm, setNewSeatForm] = useState<NewSeatForm>({
+    title: '',
+    practiceArea: getDynamicPracticeOptions()[0] ?? 'Central',
+    band: 'Revenue Producer',
+  });
 
   // Gather open seats for the API call
-  const openSeats = people.filter(p => p.status === 'Open Seat' && p.recruitingStatus !== 'Closed');
+  const openSeats = useMemo(
+    () => people.filter(p => p.status === 'Open Seat' && p.recruitingStatus !== 'Closed'),
+    [people],
+  );
+
+  // Build a lookup of ALL candidates across ALL seats for de-duplication
+  const allCandidatesMap = useMemo(() => {
+    const map: { byLinkedin: Map<string, { seatId: string; seatTitle: string; candidateId: string; candidateName: string }>; byNameLower: Map<string, { seatId: string; seatTitle: string; candidateId: string; candidateName: string }> } = {
+      byLinkedin: new Map(),
+      byNameLower: new Map(),
+    };
+    for (const person of people) {
+      if (person.status !== 'Open Seat') continue;
+      for (const c of person.candidates ?? []) {
+        if (c.linkedinUrl) {
+          // Normalize LinkedIn URL for comparison
+          const normalized = c.linkedinUrl.replace(/\/$/, '').toLowerCase();
+          map.byLinkedin.set(normalized, { seatId: person.id, seatTitle: person.title, candidateId: c.id, candidateName: c.name });
+        }
+        map.byNameLower.set(c.name.toLowerCase().trim(), { seatId: person.id, seatTitle: person.title, candidateId: c.id, candidateName: c.name });
+      }
+    }
+    return map;
+  }, [people]);
+
+  /* -------------------------------------------------------
+     De-dup check for a single candidate
+     ------------------------------------------------------- */
+  const findDuplicate = useCallback((candidate: ParsedCandidate): CandidateAssignment['duplicateInfo'] => {
+    // 1. Check by LinkedIn URL (most reliable)
+    if (candidate.linkedinUrl) {
+      const normalized = candidate.linkedinUrl.replace(/\/$/, '').toLowerCase();
+      const match = allCandidatesMap.byLinkedin.get(normalized);
+      if (match) return match;
+    }
+    // 2. Check by exact name match (case-insensitive)
+    const nameMatch = allCandidatesMap.byNameLower.get(candidate.name.toLowerCase().trim());
+    if (nameMatch) return nameMatch;
+
+    return null;
+  }, [allCandidatesMap]);
 
   /* -------------------------------------------------------
      Parse handler
@@ -83,6 +178,7 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setAssignments([]);
     setApplied(false);
     setApplySummary(null);
 
@@ -112,47 +208,157 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
         return;
       }
 
-      setResult(data as ParseResult);
+      const parsed = data as ParseResult;
+      setResult(parsed);
+
+      // Build per-candidate assignments with de-dup check
+      const candidateAssignments: CandidateAssignment[] = parsed.candidates.map(c => {
+        const dup = findDuplicate(c);
+        return {
+          ...c,
+          // If AI matched a seat globally, pre-assign it to each candidate
+          assignedSeatId: parsed.matchedSeatId,
+          // If duplicate found, override action to 'update' and record the info
+          duplicateInfo: dup,
+          action: dup ? 'update' : c.action,
+          existingCandidateId: dup ? dup.candidateId : c.existingCandidateId,
+        };
+      });
+      setAssignments(candidateAssignments);
     } catch (err) {
       console.error('[Email Ingest] Parse error:', err);
       setError('Failed to connect to the parsing service. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [emailText, openSeats]);
+  }, [emailText, openSeats, findDuplicate]);
 
   /* -------------------------------------------------------
-     Apply handler — creates/updates candidates
+     Update assignment for a specific candidate
+     ------------------------------------------------------- */
+  const updateAssignment = (idx: number, seatId: string | null) => {
+    setAssignments(prev => prev.map((a, i) =>
+      i === idx ? { ...a, assignedSeatId: seatId } : a
+    ));
+  };
+
+  /* -------------------------------------------------------
+     Create new seat from the inline form
+     ------------------------------------------------------- */
+  const handleCreateNewSeat = () => {
+    if (!newSeatForm.title.trim()) return;
+
+    const newId = uuidv4();
+    const newPerson: Person = {
+      id: newId,
+      firstName: 'Open',
+      lastName: 'Seat',
+      title: newSeatForm.title.trim(),
+      band: newSeatForm.band as Person['band'],
+      practiceArea: newSeatForm.practiceArea,
+      subPracticeSpecialties: [],
+      office: 'New York',
+      employmentType: 'Full-Time',
+      status: 'Open Seat',
+      reportsTo: null,
+      supportLines: [],
+      practiceAreaLead: false,
+      performanceRating: 'Performer',
+      retentionRisk: 'Low',
+      performanceNotes: '',
+      retentionNotes: '',
+      lastReviewDate: null,
+      isRevenueProducer: newSeatForm.band === 'Revenue Producer' || newSeatForm.band === 'Senior Leadership',
+      currentYearOCE: null,
+      priorYearOCE: null,
+      revenueTarget: null,
+      pipelineValue: null,
+      startDate: new Date().toISOString().split('T')[0],
+      lastPayIncreaseDate: null,
+      lastPayIncreasePercent: null,
+      birthday: null,
+      compensationType: 'Base + Bonus',
+      baseSalary: null,
+      totalOTE: null,
+      employeeFileLink: null,
+      skillsTags: [],
+      needsTags: [],
+      supportRequirements: null,
+      adminNotes: '',
+      recruitingStatus: 'Sourcing',
+      hiringPriority: 'Medium',
+      candidates: [],
+      lastUpdated: new Date().toISOString(),
+    };
+
+    addPerson(newPerson);
+    setShowNewSeatForm(false);
+    setNewSeatForm({
+      title: '',
+      practiceArea: getDynamicPracticeOptions()[0] ?? 'Central',
+      band: 'Revenue Producer',
+    });
+
+    // Auto-assign all currently unassigned candidates to this new seat
+    setAssignments(prev => prev.map(a =>
+      a.assignedSeatId === '__new__' || a.assignedSeatId === null
+        ? { ...a, assignedSeatId: newId }
+        : a
+    ));
+  };
+
+  /* -------------------------------------------------------
+     Apply handler — creates/updates candidates per-assignment
      ------------------------------------------------------- */
   const handleApply = useCallback(() => {
-    if (!result) return;
+    if (assignments.length === 0) return;
 
     let created = 0;
     let updated = 0;
-    const seatId = result.matchedSeatId;
+    let skipped = 0;
 
-    if (!seatId) {
-      setError('No matched seat — cannot apply changes. Please match to a seat first.');
-      return;
-    }
+    for (const assignment of assignments) {
+      const seatId = assignment.assignedSeatId;
 
-    // Verify the seat exists
-    const seat = people.find(p => p.id === seatId);
-    if (!seat) {
-      setError('Matched seat not found in database.');
-      return;
-    }
+      // Skip candidates with no seat assigned
+      if (!seatId || seatId === '__new__') {
+        skipped++;
+        continue;
+      }
 
-    for (const candidate of result.candidates) {
-      if (candidate.action === 'create') {
+      // Verify the seat exists
+      const seat = people.find(p => p.id === seatId);
+      if (!seat) {
+        skipped++;
+        continue;
+      }
+
+      if (assignment.duplicateInfo) {
+        // This is a duplicate — update the existing candidate in the seat it already belongs to
+        const existingSeatId = assignment.duplicateInfo.seatId;
+        const existingCandidateId = assignment.duplicateInfo.candidateId;
+        const updates: Partial<Candidate> = {};
+        if (assignment.notes) updates.notes = assignment.notes;
+        if (assignment.currentTitle) updates.currentTitle = assignment.currentTitle;
+        if (assignment.currentCompany) updates.currentCompany = assignment.currentCompany;
+        if (assignment.location) updates.location = assignment.location;
+        if (assignment.linkedinUrl) updates.linkedinUrl = assignment.linkedinUrl;
+
+        if (Object.keys(updates).length > 0) {
+          updateCandidate(existingSeatId, existingCandidateId, updates);
+          updated++;
+        } else {
+          skipped++;
+        }
+      } else if (assignment.action === 'create') {
         const newCandidate: Candidate = {
           id: uuidv4(),
-          name: candidate.name,
-          currentTitle: candidate.currentTitle ?? undefined,
-          currentCompany: candidate.currentCompany ?? undefined,
-          location: candidate.location ?? undefined,
-          linkedinUrl: candidate.linkedinUrl ?? undefined,
-          notes: candidate.notes ?? undefined,
+          name: assignment.name,
+          currentTitle: assignment.currentTitle ?? undefined,
+          currentCompany: assignment.currentCompany ?? undefined,
+          location: assignment.location ?? undefined,
+          linkedinUrl: assignment.linkedinUrl ?? undefined,
+          notes: assignment.notes ?? undefined,
           stage: 'Identified',
           source: 'Email Ingest',
           addedDate: new Date().toISOString(),
@@ -160,28 +366,28 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
         };
         addCandidate(seatId, newCandidate);
         created++;
-      } else if (candidate.action === 'update' && candidate.existingCandidateId) {
+      } else if (assignment.action === 'update' && assignment.existingCandidateId) {
         const updates: Partial<Candidate> = {};
-        if (candidate.notes) updates.notes = candidate.notes;
-        if (candidate.currentTitle) updates.currentTitle = candidate.currentTitle;
-        if (candidate.currentCompany) updates.currentCompany = candidate.currentCompany;
-        if (candidate.location) updates.location = candidate.location;
-        if (candidate.linkedinUrl) updates.linkedinUrl = candidate.linkedinUrl;
+        if (assignment.notes) updates.notes = assignment.notes;
+        if (assignment.currentTitle) updates.currentTitle = assignment.currentTitle;
+        if (assignment.currentCompany) updates.currentCompany = assignment.currentCompany;
+        if (assignment.location) updates.location = assignment.location;
+        if (assignment.linkedinUrl) updates.linkedinUrl = assignment.linkedinUrl;
 
         if (Object.keys(updates).length > 0) {
-          updateCandidate(seatId, candidate.existingCandidateId, updates);
+          updateCandidate(seatId, assignment.existingCandidateId, updates);
           updated++;
         }
       }
     }
 
     setApplied(true);
-    setApplySummary(
-      `Added ${created} new candidate${created !== 1 ? 's' : ''}${
-        updated > 0 ? `, updated ${updated} existing` : ''
-      }.`
-    );
-  }, [result, people, addCandidate, updateCandidate]);
+    const parts: string[] = [];
+    if (created > 0) parts.push(`added ${created} new candidate${created !== 1 ? 's' : ''}`);
+    if (updated > 0) parts.push(`updated ${updated} existing`);
+    if (skipped > 0) parts.push(`skipped ${skipped} (no seat assigned)`);
+    setApplySummary(parts.length > 0 ? parts.join(', ') + '.' : 'No changes made.');
+  }, [assignments, people, addCandidate, updateCandidate]);
 
   /* -------------------------------------------------------
      Reset
@@ -189,17 +395,33 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
   const handleReset = () => {
     setEmailText('');
     setResult(null);
+    setAssignments([]);
     setError(null);
     setApplied(false);
     setApplySummary(null);
+    setShowNewSeatForm(false);
   };
 
   /* -------------------------------------------------------
-     Find matched seat name
+     Derived: all candidates assigned?
      ------------------------------------------------------- */
-  const matchedSeat = result?.matchedSeatId
-    ? openSeats.find(s => s.id === result.matchedSeatId)
-    : null;
+  const allAssigned = assignments.length > 0 && assignments.every(a =>
+    a.assignedSeatId && a.assignedSeatId !== '__new__'
+  );
+  const anyAssigned = assignments.some(a =>
+    a.assignedSeatId && a.assignedSeatId !== '__new__'
+  );
+
+  /* -------------------------------------------------------
+     Field styles
+     ------------------------------------------------------- */
+  const fieldInputCls = `w-full text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700
+    bg-white dark:bg-[#0f1419] text-gray-900 dark:text-gray-100
+    placeholder:text-gray-400 dark:placeholder:text-gray-600
+    focus:outline-none focus:ring-2 focus:ring-[#00857C]/30 dark:focus:ring-teal-500/30 focus:border-[#00857C] dark:focus:border-teal-500
+    transition-all duration-200`;
+
+  const fieldLabelCls = 'text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1 block';
 
   return (
     <>
@@ -216,7 +438,7 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
       >
         <div
           className="bg-white dark:bg-[#141a24] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700
-                      w-full max-w-2xl max-h-[85vh] flex flex-col animate-scale-in"
+                      w-full max-w-3xl max-h-[90vh] flex flex-col animate-scale-in"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -328,58 +550,48 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
             {/* Results preview */}
             {result && !applied && (
               <div className="space-y-4 animate-fade-in-up">
-                {/* Matched Seat */}
+                {/* AI Parse Summary */}
                 <div className="p-4 rounded-xl bg-gray-50 dark:bg-dark-surface-2/50 border border-gray-100 dark:border-gray-700/50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                      Matched Seat
+                      AI Parse Result
                     </span>
                     <ConfidenceBadge level={result.confidence} />
                   </div>
-                  {matchedSeat ? (
-                    <div>
-                      <p className="text-sm font-semibold text-odgers-navy dark:text-dark-text">
-                        {matchedSeat.title}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {matchedSeat.practiceArea} &middot; {matchedSeat.band}
-                      </p>
-                    </div>
-                  ) : result.seatTitle ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                      No match found — inferred: "{result.seatTitle}"
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                      Could not identify a matching seat
+                  <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                    {result.summary}
+                  </p>
+                  {result.seatTitle && !result.matchedSeatId && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                      Inferred seat: &ldquo;{result.seatTitle}&rdquo; — not matched to an existing seat
                     </p>
                   )}
                 </div>
 
-                {/* Summary */}
-                <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                  {result.summary}
-                </p>
-
-                {/* Candidates */}
-                {result.candidates.length > 0 && (
+                {/* Candidates with per-candidate seat assignment */}
+                {assignments.length > 0 && (
                   <div>
                     <h4 className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
-                      Candidates Found ({result.candidates.length})
+                      Candidates Found ({assignments.length}) — Assign Each to an Open Seat
                     </h4>
-                    <div className="space-y-2">
-                      {result.candidates.map((candidate, idx) => (
+                    <div className="space-y-3">
+                      {assignments.map((candidate, idx) => (
                         <div
                           key={idx}
                           className="p-3 rounded-xl bg-white dark:bg-[#1c2333] border border-gray-100 dark:border-gray-700/50
-                                     shadow-sm"
+                                     shadow-sm space-y-2"
                         >
+                          {/* Top row: candidate info */}
                           <div className="flex items-center gap-3">
                             {/* Action badge */}
                             <span className={`badge flex-shrink-0 ${
-                              candidate.action === 'create' ? 'badge-teal' : 'badge-amber'
+                              candidate.duplicateInfo
+                                ? 'badge-amber'
+                                : candidate.action === 'create' ? 'badge-teal' : 'badge-amber'
                             }`}>
-                              {candidate.action === 'create' ? (
+                              {candidate.duplicateInfo ? (
+                                <><ArrowRightLeft size={10} className="mr-0.5" /> Existing</>
+                              ) : candidate.action === 'create' ? (
                                 <><UserPlus size={10} className="mr-0.5" /> New</>
                               ) : (
                                 'Update'
@@ -423,9 +635,37 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
                           </div>
 
                           {candidate.notes && (
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic mt-2 pl-[68px]">
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic pl-[68px]">
                               {candidate.notes}
                             </p>
+                          )}
+
+                          {/* Duplicate warning */}
+                          <DuplicateWarning info={candidate.duplicateInfo} />
+
+                          {/* Seat assignment dropdown */}
+                          {!candidate.duplicateInfo && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                Assign to:
+                              </label>
+                              <select
+                                className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700
+                                  bg-white dark:bg-[#0f1419] text-gray-800 dark:text-gray-200
+                                  focus:outline-none focus:ring-2 focus:ring-[#00857C]/30 dark:focus:ring-teal-500/30
+                                  focus:border-[#00857C] dark:focus:border-teal-500 transition-all duration-200"
+                                value={candidate.assignedSeatId ?? ''}
+                                onChange={e => updateAssignment(idx, e.target.value || null)}
+                              >
+                                <option value="">— Select Open Seat —</option>
+                                {openSeats.map(s => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.title} ({s.practiceArea})
+                                  </option>
+                                ))}
+                                <option value="__new__">+ Create New Seat...</option>
+                              </select>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -433,7 +673,90 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
                   </div>
                 )}
 
-                {result.candidates.length === 0 && (
+                {/* New Seat creation inline form */}
+                {(showNewSeatForm || assignments.some(a => a.assignedSeatId === '__new__')) && (
+                  <div className="p-4 rounded-xl bg-teal-50/50 dark:bg-teal-900/10 border border-teal-200/60 dark:border-teal-700/40 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Plus size={14} className="text-[#00857C] dark:text-teal-400" />
+                      <span className="text-xs font-bold text-[#00857C] dark:text-teal-400 uppercase tracking-wider">
+                        Create New Open Seat
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className={fieldLabelCls}>Seat Title</label>
+                        <input
+                          type="text"
+                          className={fieldInputCls}
+                          placeholder="e.g. VP of Technology"
+                          value={newSeatForm.title}
+                          onChange={e => setNewSeatForm(f => ({ ...f, title: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className={fieldLabelCls}>Practice</label>
+                        <PracticeSelect
+                          value={newSeatForm.practiceArea}
+                          onChange={val => setNewSeatForm(f => ({ ...f, practiceArea: val }))}
+                          className={fieldInputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={fieldLabelCls}>Band</label>
+                        <select
+                          className={fieldInputCls}
+                          value={newSeatForm.band}
+                          onChange={e => setNewSeatForm(f => ({ ...f, band: e.target.value }))}
+                        >
+                          {BAND_OPTIONS.map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={handleCreateNewSeat}
+                        disabled={!newSeatForm.title.trim()}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-white
+                                   bg-[#00857C] dark:bg-teal-600 hover:bg-[#006b63] dark:hover:bg-teal-500
+                                   px-4 py-2 rounded-lg transition-colors duration-200
+                                   disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={12} />
+                        Create Seat & Assign
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowNewSeatForm(false);
+                          // Reset any __new__ assignments to null
+                          setAssignments(prev => prev.map(a =>
+                            a.assignedSeatId === '__new__' ? { ...a, assignedSeatId: null } : a
+                          ));
+                        }}
+                        className="text-xs text-gray-500 dark:text-gray-400 px-3 py-2 rounded-lg
+                                   hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors duration-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {/* Pre-fill from AI if it suggested a new seat */}
+                    {result.newSeat && !newSeatForm.title && (
+                      <button
+                        onClick={() => setNewSeatForm({
+                          title: result.newSeat!.title,
+                          practiceArea: result.newSeat!.practiceArea || (getDynamicPracticeOptions()[0] ?? 'Central'),
+                          band: result.newSeat!.band || 'Revenue Producer',
+                        })}
+                        className="text-[11px] text-[#00857C] dark:text-teal-400 hover:underline"
+                      >
+                        Use AI suggestion: &ldquo;{result.newSeat.title}&rdquo;
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {assignments.length === 0 && (
                   <div className="text-center py-4">
                     <p className="text-sm text-gray-400 dark:text-gray-500">
                       No candidates found in the email text.
@@ -468,7 +791,12 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
                     Start Over
                   </button>
                   <div className="flex-1" />
-                  {result.candidates.length > 0 && matchedSeat && (
+                  {!allAssigned && anyAssigned && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                      Some candidates unassigned
+                    </span>
+                  )}
+                  {assignments.length > 0 && anyAssigned && (
                     <button
                       onClick={handleApply}
                       className="flex items-center gap-2 text-sm font-semibold text-white
@@ -476,7 +804,7 @@ export function EmailIngestPanel({ onClose }: EmailIngestPanelProps) {
                                  px-5 py-2.5 rounded-xl transition-colors duration-200 shadow-sm"
                     >
                       <CheckCircle2 size={16} />
-                      Apply {result.candidates.length} Candidate{result.candidates.length !== 1 ? 's' : ''}
+                      Apply {assignments.filter(a => a.assignedSeatId && a.assignedSeatId !== '__new__').length} Candidate{assignments.filter(a => a.assignedSeatId && a.assignedSeatId !== '__new__').length !== 1 ? 's' : ''}
                     </button>
                   )}
                 </div>
