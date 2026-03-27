@@ -54,8 +54,27 @@ interface UIStore {
   // Org chart collapse
   collapsedPractices: string[];
   toggleCollapsedPractice: (practice: string) => void;
+  setCollapsedPractices: (practices: string[]) => void;
   collapsedBandLevel: number;
   setCollapsedBandLevel: (level: number) => void;
+
+  // Pursuit targets visibility (opportunistic senior hires)
+  showPursuitTargets: boolean;
+  togglePursuitTargets: () => void;
+
+  // Saved chart views (persisted to localStorage)
+  savedChartViews: Array<{
+    id: string;
+    name: string;
+    collapsedPractices: string[];
+    collapsedBandLevel: number;
+    officeFilter: string[];
+    showOpenSeats: boolean;
+    showPursuitTargets: boolean;
+  }>;
+  saveChartView: (name: string) => void;
+  loadChartView: (id: string) => void;
+  deleteChartView: (id: string) => void;
 
   // Import modal
   importModalOpen: boolean;
@@ -121,8 +140,49 @@ export const useUIStore = create<UIStore>((set) => ({
       ? s.collapsedPractices.filter(p => p !== practice)
       : [...s.collapsedPractices, practice],
   })),
+  setCollapsedPractices: (practices) => set({ collapsedPractices: practices }),
   collapsedBandLevel: 0,
   setCollapsedBandLevel: (level) => set({ collapsedBandLevel: level }),
+
+  showPursuitTargets: true,
+  togglePursuitTargets: () => set(s => ({ showPursuitTargets: !s.showPursuitTargets })),
+
+  savedChartViews: (() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('odgers-chart-views') : null;
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  })(),
+  saveChartView: (name) => set(s => {
+    const view = {
+      id: `view-${Date.now()}`,
+      name,
+      collapsedPractices: [...s.collapsedPractices],
+      collapsedBandLevel: s.collapsedBandLevel,
+      officeFilter: [...s.officeFilter],
+      showOpenSeats: s.showOpenSeats,
+      showPursuitTargets: s.showPursuitTargets,
+    };
+    const updated = [...s.savedChartViews, view];
+    try { localStorage.setItem('odgers-chart-views', JSON.stringify(updated)); } catch {}
+    return { savedChartViews: updated };
+  }),
+  loadChartView: (id) => set(s => {
+    const view = s.savedChartViews.find(v => v.id === id);
+    if (!view) return s;
+    return {
+      collapsedPractices: view.collapsedPractices,
+      collapsedBandLevel: view.collapsedBandLevel,
+      officeFilter: view.officeFilter,
+      showOpenSeats: view.showOpenSeats,
+      showPursuitTargets: view.showPursuitTargets,
+    };
+  }),
+  deleteChartView: (id) => set(s => {
+    const updated = s.savedChartViews.filter(v => v.id !== id);
+    try { localStorage.setItem('odgers-chart-views', JSON.stringify(updated)); } catch {}
+    return { savedChartViews: updated };
+  }),
 
   importModalOpen: false,
   setImportModalOpen: (open) => set({ importModalOpen: open }),

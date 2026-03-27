@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Linkedin, Star, MapPin, Calendar, ExternalLink, CheckCircle2, Building2, Briefcase } from 'lucide-react';
+import { X, Linkedin, Star, MapPin, Calendar, ExternalLink, CheckCircle2, Building2, Briefcase, Clock } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
 import type { Candidate } from '../../types';
@@ -88,21 +88,52 @@ export function CandidateDetailPanel({
   // Local state for editable fields
   const [notes, setNotes] = useState(candidate.notes ?? '');
   const [source, setSource] = useState(candidate.source ?? '');
+  const [currentTitle, setCurrentTitle] = useState(candidate.currentTitle ?? '');
+  const [currentCompany, setCurrentCompany] = useState(candidate.currentCompany ?? '');
+  const [availableFrom, setAvailableFrom] = useState(candidate.availableFrom ?? '');
+  const [payoutDate, setPayoutDate] = useState(candidate.payoutDate ?? '');
+  const [timelineNote, setTimelineNote] = useState(candidate.timelineNote ?? '');
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Save notes on blur
+  // Save helpers
   const saveNotes = () => {
     const trimmed = notes.trim();
     if (trimmed !== (candidate.notes ?? '')) {
       updateCandidate(personId, candidate.id, { notes: trimmed || undefined });
     }
   };
-
-  // Save source on blur
   const saveSource = () => {
     const trimmed = source.trim();
     if (trimmed !== (candidate.source ?? '')) {
       updateCandidate(personId, candidate.id, { source: trimmed || undefined });
+    }
+  };
+  const saveTitle = () => {
+    const trimmed = currentTitle.trim();
+    if (trimmed !== (candidate.currentTitle ?? '')) {
+      updateCandidate(personId, candidate.id, { currentTitle: trimmed || undefined });
+    }
+  };
+  const saveCompany = () => {
+    const trimmed = currentCompany.trim();
+    if (trimmed !== (candidate.currentCompany ?? '')) {
+      updateCandidate(personId, candidate.id, { currentCompany: trimmed || undefined });
+    }
+  };
+  const saveAvailableFrom = () => {
+    if (availableFrom !== (candidate.availableFrom ?? '')) {
+      updateCandidate(personId, candidate.id, { availableFrom: availableFrom || undefined });
+    }
+  };
+  const savePayoutDate = () => {
+    if (payoutDate !== (candidate.payoutDate ?? '')) {
+      updateCandidate(personId, candidate.id, { payoutDate: payoutDate || undefined });
+    }
+  };
+  const saveTimelineNote = () => {
+    const trimmed = timelineNote.trim();
+    if (trimmed !== (candidate.timelineNote ?? '')) {
+      updateCandidate(personId, candidate.id, { timelineNote: trimmed || undefined });
     }
   };
 
@@ -110,7 +141,13 @@ export function CandidateDetailPanel({
   useEffect(() => {
     setNotes(candidate.notes ?? '');
     setSource(candidate.source ?? '');
-  }, [candidate.notes, candidate.source]);
+    setCurrentTitle(candidate.currentTitle ?? '');
+    setCurrentCompany(candidate.currentCompany ?? '');
+    setAvailableFrom(candidate.availableFrom ?? '');
+    setPayoutDate(candidate.payoutDate ?? '');
+    setTimelineNote(candidate.timelineNote ?? '');
+  }, [candidate.notes, candidate.source, candidate.currentTitle, candidate.currentCompany,
+      candidate.availableFrom, candidate.payoutDate, candidate.timelineNote]);
 
   // Close on Escape
   useEffect(() => {
@@ -253,25 +290,35 @@ export function CandidateDetailPanel({
             </select>
           </div>
 
-          {/* Current Info */}
+          {/* Current Info — editable */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fieldLabelCls}>
                 <Briefcase size={10} className="inline mr-0.5 -mt-0.5" />
                 Title
               </label>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                {candidate.currentTitle || <span className="text-gray-300 dark:text-gray-600">--</span>}
-              </p>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="Current title..."
+                value={currentTitle}
+                onChange={e => setCurrentTitle(e.target.value)}
+                onBlur={saveTitle}
+              />
             </div>
             <div>
               <label className={fieldLabelCls}>
                 <Building2 size={10} className="inline mr-0.5 -mt-0.5" />
                 Company
               </label>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                {candidate.currentCompany || <span className="text-gray-300 dark:text-gray-600">--</span>}
-              </p>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="Current company..."
+                value={currentCompany}
+                onChange={e => setCurrentCompany(e.target.value)}
+                onBlur={saveCompany}
+              />
             </div>
           </div>
 
@@ -299,6 +346,49 @@ export function CandidateDetailPanel({
               onChange={e => setNotes(e.target.value)}
               onBlur={saveNotes}
             />
+          </div>
+
+          {/* Timeline */}
+          <div className="border-t border-gray-100 dark:border-gray-700/50 pt-4 space-y-3">
+            <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <Clock size={11} />
+              Timeline
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={fieldLabelCls}>Available From</label>
+                <input
+                  type="date"
+                  className={fieldInputCls}
+                  value={availableFrom}
+                  onChange={e => setAvailableFrom(e.target.value)}
+                  onBlur={saveAvailableFrom}
+                  title="Earliest start date"
+                />
+              </div>
+              <div>
+                <label className={fieldLabelCls}>Payout / Cliff Date</label>
+                <input
+                  type="date"
+                  className={fieldInputCls}
+                  value={payoutDate}
+                  onChange={e => setPayoutDate(e.target.value)}
+                  onBlur={savePayoutDate}
+                  title="Bonus payout or equity cliff date before they can move"
+                />
+              </div>
+            </div>
+            <div>
+              <label className={fieldLabelCls}>Timeline Note</label>
+              <input
+                type="text"
+                className={fieldInputCls}
+                placeholder="e.g. Waiting on equity vest, est. March 2027..."
+                value={timelineNote}
+                onChange={e => setTimelineNote(e.target.value)}
+                onBlur={saveTimelineNote}
+              />
+            </div>
           </div>
 
           {/* Place Button */}

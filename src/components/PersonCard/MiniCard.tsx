@@ -70,9 +70,11 @@ function getTenureLabel(startDate: string): string | null {
 
 export function MiniCard({ person, onClick, colorMode = 'practiceArea', violations }: MiniCardProps) {
   const isOpenSeat = person.status === 'Open Seat';
+  const isPursuit = person.status === 'Pursuit';
   const isOnLeave = person.status === 'On Leave';
   const isTerminated = person.status === 'Terminated';
   const borderColor = getCardBorderColor(person, colorMode);
+  const candidateCount = person.candidates?.length ?? 0;
 
   const tenureLabel = useMemo(() => {
     if (isOpenSeat || !person.startDate) return null;
@@ -100,12 +102,14 @@ export function MiniCard({ person, onClick, colorMode = 'practiceArea', violatio
         transition-shadow duration-200 ease-out
         ${isOpenSeat
           ? 'border border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/60 dark:bg-teal-950/30'
+          : isPursuit
+          ? 'border border-dashed border-amber-300 dark:border-amber-600 bg-amber-50/60 dark:bg-amber-950/20'
           : 'bg-white dark:bg-[#1a2332] shadow-sm hover:shadow-md dark:shadow-gray-900/30 dark:hover:shadow-gray-900/50'
         }
         ${isOnLeave ? 'opacity-60' : ''}
         ${isTerminated ? 'grayscale opacity-50' : ''}
       `}
-      style={!isOpenSeat ? {
+      style={(!isOpenSeat && !isPursuit) ? {
         borderLeft: `3px solid ${borderColor}`,
         borderTopLeftRadius: '8px',
       } : undefined}
@@ -117,6 +121,10 @@ export function MiniCard({ person, onClick, colorMode = 'practiceArea', violatio
           {isOpenSeat ? (
             <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-teal-400 dark:text-teal-500 text-sm font-semibold ring-1 ring-teal-200 dark:ring-teal-800">
               ?
+            </div>
+          ) : isPursuit ? (
+            <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-500 dark:text-amber-400 text-sm font-semibold ring-1 ring-amber-200 dark:ring-amber-700">
+              ◎
             </div>
           ) : person.photoUrl ? (
             <img
@@ -145,6 +153,11 @@ export function MiniCard({ person, onClick, colorMode = 'practiceArea', violatio
         {isOpenSeat ? (
           <div className="text-center w-full mt-0.5">
             <div className="text-[11px] font-semibold tracking-wide text-teal-500 dark:text-teal-400 uppercase">Open</div>
+            <div className="text-[9px] text-gray-400 dark:text-gray-500 truncate w-full leading-tight mt-0.5">{person.title}</div>
+          </div>
+        ) : isPursuit ? (
+          <div className="text-center w-full mt-0.5">
+            <div className="text-[11px] font-semibold tracking-wide text-amber-500 dark:text-amber-400 uppercase">Pursuing</div>
             <div className="text-[9px] text-gray-400 dark:text-gray-500 truncate w-full leading-tight mt-0.5">{person.title}</div>
           </div>
         ) : (
@@ -221,6 +234,33 @@ export function MiniCard({ person, onClick, colorMode = 'practiceArea', violatio
             : 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
           }`}>
             {person.hiringPriority}
+          </span>
+        )}
+
+        {/* Pursuit priority badge */}
+        {isPursuit && person.hiringPriority && (
+          <span className={`inline-block text-[8px] px-1.5 py-0.5 rounded-full font-medium tracking-wide ${
+            person.hiringPriority === 'Critical' ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+            : person.hiringPriority === 'High' ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+            : 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+          }`}>
+            {person.hiringPriority}
+          </span>
+        )}
+
+        {/* Candidate count pill for Open Seat and Pursuit */}
+        {(isOpenSeat || isPursuit) && candidateCount > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 rounded-full font-medium
+                           bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+            {candidateCount} candidate{candidateCount !== 1 ? 's' : ''}
+          </span>
+        )}
+
+        {/* Target fill quarter chip */}
+        {(isOpenSeat || isPursuit) && person.targetFillQuarter && (
+          <span className="inline-block text-[8px] px-1.5 py-0.5 rounded-full font-medium
+                           bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 tabular-nums">
+            {person.targetFillQuarter}
           </span>
         )}
 

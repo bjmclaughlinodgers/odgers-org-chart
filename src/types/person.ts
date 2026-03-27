@@ -21,6 +21,14 @@ export interface Candidate {
   linkedinUrl?: string;
   location?: string;
   profilePic?: string;
+  /** ISO date — when the candidate can realistically start */
+  availableFrom?: string;
+  /** ISO date — expected bonus payout / equity cliff before they can move */
+  payoutDate?: string;
+  /** Free-text timeline note, e.g. "Waiting on equity vest, est March 2027" */
+  timelineNote?: string;
+  /** If true, this candidate is hidden from normal views but preserved for records */
+  archived?: boolean;
 }
 
 export interface Person {
@@ -74,9 +82,11 @@ export interface Person {
   // Capacity
   supportRequirements: SupportRequirements | null;
 
-  // Open Seat Fields
+  // Open Seat / Pursuit Fields
   hiringPriority?: HiringPriority;
   targetStartDate?: string;
+  /** Target fill quarter for planning, e.g. 'Q3 2026' */
+  targetFillQuarter?: string;
   recruitingNotes?: string;
   budgetedCompensation?: string;
   recruitingStatus?: RecruitingStatus;

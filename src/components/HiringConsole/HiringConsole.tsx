@@ -670,8 +670,8 @@ export function HiringConsole() {
   // Placement confirmation state
   const [placementPending, setPlacementPending] = useState<{ seatId: string; candidateId: string; candidateName: string } | null>(null);
 
-  // All open seats — subscribe to people array so candidates/fields updates trigger re-render
-  const allOpenSeats = useMemo(() => people.filter(p => p.status === 'Open Seat'), [people]);
+  // All open seats + pursuit targets — subscribe to people array so candidates/fields updates trigger re-render
+  const allOpenSeats = useMemo(() => people.filter(p => p.status === 'Open Seat' || p.status === 'Pursuit'), [people]);
   const allSeats = useMemo(
     () => showClosed ? allOpenSeats : allOpenSeats.filter(s => s.recruitingStatus !== 'Closed'),
     [allOpenSeats, showClosed],

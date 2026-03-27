@@ -56,6 +56,7 @@ const SWIM_LANE_HEADER = 30;
 function buildTree(
   people: Person[],
   showOpenSeats: boolean,
+  showPursuitTargets: boolean,
   showSupportLines: boolean,
   collapsedPractices: string[],
   collapsedBandLevel: number,
@@ -66,7 +67,13 @@ function buildTree(
 
   const visibleBands = new Set(BAND_ORDER.slice(0, BAND_ORDER.length - collapsedBandLevel));
 
-  const filteredPeople = (showOpenSeats ? people : people.filter(p => isActivePerson(p)))
+  const filteredPeople = people
+    .filter(p => {
+      if (p.status === 'Terminated') return false;
+      if (p.status === 'Open Seat') return showOpenSeats;
+      if (p.status === 'Pursuit') return showPursuitTargets;
+      return true; // Active, On Leave, Notice Period
+    })
     .filter(p => !collapsedPractices.includes(p.practiceArea))
     .filter(p => visibleBands.has(p.band))
     .filter(p => officeFilter.length === 0 || officeFilter.includes(p.office));
@@ -234,7 +241,7 @@ function buildTree(
 
 function OrgChartInner() {
   const { people } = useOrgData();
-  const { showOpenSeats, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter } = useUIStore();
+  const { showOpenSeats, showPursuitTargets, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter } = useUIStore();
   const darkMode = useUIStore(s => s.darkMode);
   const updatePerson = useOrgStore((s) => s.updatePerson);
   const reactFlowInstance = useReactFlow();
@@ -246,8 +253,8 @@ function OrgChartInner() {
   } | null>(null);
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildTree(people, showOpenSeats, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter),
-    [people, showOpenSeats, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter]
+    () => buildTree(people, showOpenSeats, showPursuitTargets, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter),
+    [people, showOpenSeats, showPursuitTargets, showSupportLines, collapsedPractices, collapsedBandLevel, officeFilter]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);

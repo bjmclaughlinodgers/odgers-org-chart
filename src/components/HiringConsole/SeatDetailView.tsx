@@ -113,8 +113,12 @@ export function SeatDetailView({ seat, onBack, onPlaceCandidate }: SeatDetailVie
 
         <div className="flex items-center gap-2">
           <Briefcase size={16} className="text-gray-300 dark:text-gray-600" />
-          <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            Open Seat
+          <span className={`text-[11px] font-medium uppercase tracking-wider ${
+            seat.status === 'Pursuit'
+              ? 'text-amber-400 dark:text-amber-500'
+              : 'text-gray-400 dark:text-gray-500'
+          }`}>
+            {seat.status === 'Pursuit' ? 'Pursuit Target' : 'Open Seat'}
           </span>
         </div>
       </header>
@@ -226,8 +230,8 @@ export function SeatDetailView({ seat, onBack, onPlaceCandidate }: SeatDetailVie
           </div>
         </div>
 
-        {/* Row 3: Reports To, Target Start Date, Budget, Fee Structure */}
-        <div className="grid grid-cols-4 gap-4">
+        {/* Row 3: Reports To, Target Quarter, Target Start Date, Budget, Fee Structure */}
+        <div className="grid grid-cols-5 gap-4">
           <div>
             <label className={fieldLabelCls}>Reports To</label>
             <input
@@ -237,6 +241,22 @@ export function SeatDetailView({ seat, onBack, onPlaceCandidate }: SeatDetailVie
               readOnly
               title="Edit via org chart"
             />
+          </div>
+          <div>
+            <label className={fieldLabelCls}>
+              <Calendar size={10} className="inline mr-0.5 -mt-0.5" />
+              Target Quarter
+            </label>
+            <select
+              className={fieldInputCls}
+              value={seat.targetFillQuarter ?? ''}
+              onChange={e => update('targetFillQuarter', e.target.value || undefined)}
+            >
+              <option value="">-- Select quarter --</option>
+              {['Q1 2026','Q2 2026','Q3 2026','Q4 2026','Q1 2027','Q2 2027','Q3 2027','Q4 2027','Q1 2028','Q2 2028','Q3 2028','Q4 2028'].map(q => (
+                <option key={q} value={q}>{q}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className={fieldLabelCls}>Target Start Date</label>
