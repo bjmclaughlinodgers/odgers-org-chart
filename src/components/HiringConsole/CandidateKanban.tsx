@@ -83,6 +83,7 @@ function KanbanAvatar({ candidate }: { candidate: Candidate }) {
       <img
         src={candidate.profilePic}
         alt={candidate.name}
+        referrerPolicy="no-referrer"
         className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-white dark:border-gray-700 shadow-sm"
         onError={() => setImgError(true)}
       />
@@ -126,12 +127,15 @@ export function CandidateKanban({
   const [dropTarget, setDropTarget] = useState<CandidateStage | null>(null);
   const dragRef = useRef<string | null>(null);
 
+  // Filter out archived candidates for the board view
+  const visibleCandidates = candidates.filter(c => !c.archived);
+
   // Group candidates by stage
   const grouped = new Map<CandidateStage, Candidate[]>();
   for (const stage of CANDIDATE_STAGE_OPTIONS) {
     grouped.set(stage, []);
   }
-  for (const c of candidates) {
+  for (const c of visibleCandidates) {
     const arr = grouped.get(c.stage);
     if (arr) arr.push(c);
   }

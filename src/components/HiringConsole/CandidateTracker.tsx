@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink, List, Columns3, MapPin, StickyNote } from 'lucide-react';
+import { Star, X, Plus, ChevronDown, Linkedin, Loader2, UserPlus, ExternalLink, List, Columns3, MapPin, StickyNote, Archive } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { v4 as uuidv4 } from 'uuid';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
@@ -110,6 +110,7 @@ function CandidateAvatar({ candidate, size = 24 }: { candidate: Candidate; size?
       <img
         src={candidate.profilePic}
         alt={candidate.name}
+        referrerPolicy="no-referrer"
         className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }}
         onError={() => setImgError(true)}
@@ -175,6 +176,9 @@ export function CandidateTracker({
   // Candidate detail panel
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
 
+  // Archive filter
+  const [showArchived, setShowArchived] = useState(false);
+
   const stageDropdownRef = useRef<HTMLDivElement>(null);
   const linkedinInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -182,7 +186,10 @@ export function CandidateTracker({
   /* -------------------------------------------------------
      Derived
      ------------------------------------------------------- */
-  const finalistCount = candidates.filter(c => c.isFinalist).length;
+  const activeCandidates = candidates.filter(c => !c.archived);
+  const archivedCandidates = candidates.filter(c => c.archived);
+  const visibleCandidates = showArchived ? candidates : activeCandidates;
+  const finalistCount = activeCandidates.filter(c => c.isFinalist).length;
 
   /* -------------------------------------------------------
      Close stage dropdown on outside click
@@ -339,7 +346,7 @@ export function CandidateTracker({
   /* -------------------------------------------------------
      Empty state
      ------------------------------------------------------- */
-  if (candidates.length === 0 && !addMode) {
+  if (activeCandidates.length === 0 && !addMode) {
     return (
       <div className="py-4 text-center">
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">No candidates yet</p>
@@ -380,12 +387,26 @@ export function CandidateTracker({
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-            Candidates ({candidates.length})
+            Candidates ({activeCandidates.length})
           </span>
           {finalistCount > 0 && (
             <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
               {finalistCount} finalist{finalistCount !== 1 ? 's' : ''}
             </span>
+          )}
+          {archivedCandidates.length > 0 && (
+            <button
+              onClick={() => setShowArchived(v => !v)}
+              className={`flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors duration-200 ${
+                showArchived
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title={showArchived ? 'Hide archived' : 'Show archived candidates'}
+            >
+              <Archive size={10} />
+              {archivedCandidates.length} archived
+            </button>
           )}
           {/* View toggle */}
           {candidates.length > 0 && (
@@ -438,10 +459,10 @@ export function CandidateTracker({
       </div>
 
       {/* ---- Kanban Board view ---- */}
-      {viewMode === 'board' && candidates.length > 0 && (
+      {viewMode === 'board' && activeCandidates.length > 0 && (
         <CandidateKanban
           personId={personId}
-          candidates={candidates}
+          candidates={visibleCandidates}
           readonly={readonly}
           onPlaceCandidate={onPlaceCandidate}
           onCandidateClick={c => setSelectedCandidateId(c.id)}
@@ -451,11 +472,12 @@ export function CandidateTracker({
       {/* ---- List view: Candidate rows ---- */}
       {viewMode === 'list' && (
       <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-        {candidates.map(candidate => (
+        {visibleCandidates.map(candidate => (
           <div
             key={candidate.id}
-            className="group/row py-2 px-1 -mx-1 rounded-md
-                       hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors duration-200"
+            className={`group/row py-2 px-1 -mx-1 rounded-md transition-colors duration-200
+                       hover:bg-gray-50 dark:hover:bg-white/[0.03]
+                       ${candidate.archived ? 'opacity-50' : ''}`}
           >
             <div className="flex items-center gap-2" style={{ minHeight: 32 }}>
               {/* Finalist star */}

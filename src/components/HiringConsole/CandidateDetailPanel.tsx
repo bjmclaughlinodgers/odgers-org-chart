@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Linkedin, Star, MapPin, Calendar, ExternalLink, CheckCircle2, Building2, Briefcase, Clock } from 'lucide-react';
+import { X, Linkedin, Star, MapPin, Calendar, ExternalLink, CheckCircle2, Building2, Briefcase, Clock, Archive } from 'lucide-react';
 import { useOrgStore } from '../../stores/orgStore';
 import { CANDIDATE_STAGE_OPTIONS } from '../../constants/editOptions';
 import type { Candidate } from '../../types';
@@ -23,6 +23,7 @@ function DetailAvatar({ candidate }: { candidate: Candidate }) {
       <img
         src={candidate.profilePic}
         alt={candidate.name}
+        referrerPolicy="no-referrer"
         className="w-16 h-16 rounded-2xl object-cover border-2 border-white dark:border-gray-700 shadow-md"
         onError={() => setImgError(true)}
       />
@@ -403,6 +404,27 @@ export function CandidateDetailPanel({
               Place Candidate & Close Seat
             </button>
           )}
+
+          {/* Archive / Unarchive */}
+          <div className="border-t border-gray-100 dark:border-gray-700/50 pt-4">
+            <button
+              onClick={() => updateCandidate(personId, candidate.id, { archived: !candidate.archived })}
+              className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-colors duration-200 ${
+                candidate.archived
+                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-700/40 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+                  : 'text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700/50 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/40 hover:bg-red-50 dark:hover:bg-red-900/10'
+              }`}
+              title={candidate.archived ? 'Restore candidate to active pipeline' : 'Archive this candidate (hide from pipeline without deleting)'}
+            >
+              <Archive size={14} />
+              {candidate.archived ? 'Restore from Archive' : 'Archive Candidate'}
+            </button>
+            {candidate.archived && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-500 text-center mt-1.5">
+                Archived — hidden from pipeline. Restore to re-activate.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
